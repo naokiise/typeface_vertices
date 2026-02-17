@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inter — Vertices</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #000;
+      color: #fff;
+      font-family: system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    canvas {
+      display: block;
+      margin-top: 32px;
+      cursor: text;
+      outline: none;
+    }
+    #speed-control {
+      margin-top: 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    #speed-control label {
+      font-size: 11px;
+      opacity: 0.4;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+    #speed-control input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 180px;
+      height: 2px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 1px;
+      outline: none;
+    }
+    #speed-control input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #fff;
+      cursor: pointer;
+    }
+    #speed-val {
+      font-size: 11px;
+      opacity: 0.4;
+      min-width: 36px;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" tabindex="0"></canvas>
+  <div id="speed-control">
+    <label>Speed</label>
+    <input type="range" id="speedSlider" min="1" max="100" value="30" />
+    <span id="speed-val">30</span>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const speedSlider = document.getElementById('speedSlider');
+    const speedVal = document.getElementById('speed-val');
+
+    const DPR = window.devicePixelRatio || 1;
+    const FONT_SIZE = 260;
+    const PADDING = 80;
+    const ON_CURVE_RADIUS = 3.5;
+    const OFF_CURVE_RADIUS = 2.5;
+    const LABEL_MARGIN = 60;
+    const LINE_GAP = 20;
+
+    let font = null;
+    let cursorLine = 0;
+    let cursorCol = 5;
+    let cursorVisible = true;
+    let blinkTimer = null;
+    let animFrameId = null;
+
+    let charIdCounter = 0;
+    let textData = [
+      'Inter'.split('').map(c => ({ char: c, id: charIdCounter++, done: true }))
+    ];
+
+    const animations = new Map();
+
+    function getTextLines() {
+      return textData.map(line => line.map(c => c.char).join(''));
+    }
+
+    function getSpeed() {
+      return parseInt(speedSlider.value);
+    }
+
+    speedSlider.addEventListener('input', () => {
+      speedVal.textContent = speedSlider.value;
+      canvas.focus();
+    });
+
+    function resetBlink() {
+      cursorVisible = true;
+      clearInterval(blinkTimer);
+      blinkTimer = setInterval(() => {
+        cursorVisible = !cursorVisible;
+        scheduleFrame();
+      }, 530);
+    }
+
+    function scheduleFrame() {
+      if (!animFrameId) {
+        animFrameId = requestAnimationFrame(renderFrame);
+      }
+    }
+
+    function renderFrame() {
+      animFrameId = null;
+      draw();
+
+      let hasActive = false;
+      for (const [id, anim] of animations) {
+        if (anim.progress < 1) { hasActive = true; break; }
+      }
+      if (hasActive) {
+        animFrameId = requestAnimationFrame(renderFrame);
+      }
+    }
+
+    async function loadFont() {
+      const url = 'https://cdn.jsdelivr.net/gh/rsms/inter@v4.0/docs/font-files/InterVariable.woff2';
+      try {
+        font = await opentype.load(url);
+      } catch (e) {
+        const fallbackUrl = 'https://cdn.jsdelivr.net/gh/rsms/inter@v3.19/docs/font-files/Inter-Regular.woff2';
+        try {
+          font = await opentype.load(fallbackUrl);
+        } catch (e2) {
+          const otfUrl = 'https://cdn.jsdelivr.net/gh/rsms/inter@v3.19/docs/font-files/Inter-Regular.otf';
+          font = await opentype.load(otfUrl);
+        }
+      }
+      resetBlink();
+      draw();
+      canvas.focus();
+    }
+
+    function getCursorX(lineIndex, col) {
+      const scale = FONT_SIZE / font.unitsPerEm;
+      const lineChars = textData[lineIndex] || [];
+      const text = lineChars.slice(0, col).map(c => c.char).join('');
+      const glyphs = font.stringToGlyphs(text);
+      let x = PADDING + LABEL_MARGIN;
+      for (const g of glyphs) x += g.advanceWidth * scale;
+      return x;
+    }
+
+    function getGlyphProgress(charObj) {
+      if (charObj.done) return 1;
+      const anim = animations.get(charObj.id);
+      if (!anim) return 1;
+      return anim.progress;
+    }
+
+    function updateAnimations() {
+      const now = performance.now();
+      const speed = getSpeed();
+      const cmdPerSec = speed * 1.5;
+
+      for (const [id, anim] of animations) {
+        if (anim.progress >= 1) continue;
+        const elapsed = (now - anim.startTime) / 1000;
+        const totalCmds = anim.totalCmds || 20;
+        anim.progress = Math.min(1, (elapsed * cmdPerSec) / totalCmds);
+        if (anim.progress >= 1) {
+          anim.progress = 1;
+          for (const line of textData) {
+            for (const c of line) {
+              if (c.id === id) c.done = true;
+            }
+          }
+        }
+      }
+    }
+
+    function drawPartialGlyph(glyph, x, baseline, progress) {
+      const path = glyph.getPath(x, baseline, FONT_SIZE);
+      const cmds = path.commands;
+      const visibleCount = Math.ceil(progress * cmds.length);
+
+      ctx.beginPath();
+      for (let i = 0; i < visibleCount; i++) {
+        const cmd = cmds[i];
+        switch (cmd.type) {
+          case 'M': ctx.moveTo(cmd.x, cmd.y); break;
+          case 'L': ctx.lineTo(cmd.x, cmd.y); break;
+          case 'Q': ctx.quadraticCurveTo(cmd.x1, cmd.y1, cmd.x, cmd.y); break;
+          case 'C': ctx.bezierCurveTo(cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.x, cmd.y); break;
+          case 'Z': ctx.closePath(); break;
+        }
+      }
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      const points = [];
+      let vertexIndex = 0;
+      for (let i = 0; i < visibleCount; i++) {
+        const cmd = cmds[i];
+        if (cmd.type === 'Z') continue;
+        if (cmd.x1 !== undefined && cmd.y1 !== undefined) {
+          points.push({ x: cmd.x1, y: cmd.y1, onCurve: false, index: vertexIndex++ });
+        }
+        if (cmd.x2 !== undefined && cmd.y2 !== undefined) {
+          points.push({ x: cmd.x2, y: cmd.y2, onCurve: false, index: vertexIndex++ });
+        }
+        if (cmd.x !== undefined && cmd.y !== undefined) {
+          points.push({ x: cmd.x, y: cmd.y, onCurve: true, index: vertexIndex++ });
+        }
+      }
+
+      let lastOnCurve = null;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 0.7;
+      ctx.setLineDash([3, 3]);
+      for (let i = 0; i < visibleCount; i++) {
+        const cmd = cmds[i];
+        if (cmd.type === 'M') {
+          lastOnCurve = { x: cmd.x, y: cmd.y };
+        } else if (cmd.type === 'L') {
+          lastOnCurve = { x: cmd.x, y: cmd.y };
+        } else if (cmd.type === 'Q') {
+          if (lastOnCurve) {
+            ctx.beginPath();
+            ctx.moveTo(lastOnCurve.x, lastOnCurve.y);
+            ctx.lineTo(cmd.x1, cmd.y1);
+            ctx.lineTo(cmd.x, cmd.y);
+            ctx.stroke();
+          }
+          lastOnCurve = { x: cmd.x, y: cmd.y };
+        } else if (cmd.type === 'C') {
+          if (lastOnCurve) {
+            ctx.beginPath();
+            ctx.moveTo(lastOnCurve.x, lastOnCurve.y);
+            ctx.lineTo(cmd.x1, cmd.y1);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cmd.x, cmd.y);
+            ctx.lineTo(cmd.x2, cmd.y2);
+            ctx.stroke();
+          }
+          lastOnCurve = { x: cmd.x, y: cmd.y };
+        } else if (cmd.type === 'Z') {
+          lastOnCurve = null;
+        }
+      }
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      for (const pt of points) {
+        if (pt.onCurve) {
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, ON_CURVE_RADIUS, 0, Math.PI * 2);
+          ctx.fillStyle = '#fff';
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, OFF_CURVE_RADIUS, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+
+      ctx.font = '9px system-ui, sans-serif';
+      ctx.textBaseline = 'middle';
+      for (const pt of points) {
+        if (pt.onCurve) {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+        } else {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+        }
+        ctx.fillText(String(pt.index), pt.x + 6, pt.y - 1);
+      }
+    }
+
+    function draw() {
+      if (!font) return;
+
+      updateAnimations();
+
+      const textLines = getTextLines();
+      const scale = FONT_SIZE / font.unitsPerEm;
+      const ascender = font.ascender * scale;
+      const descender = font.descender * scale;
+      const xHeight = (font.tables.os2 && font.tables.os2.sxHeight)
+        ? font.tables.os2.sxHeight * scale
+        : ascender * 0.52;
+
+      const lineHeight = ascender - descender;
+
+      let maxAdvance = 0;
+      for (const line of textLines) {
+        const glyphs = font.stringToGlyphs(line);
+        let adv = 0;
+        for (const g of glyphs) adv += g.advanceWidth * scale;
+        if (adv > maxAdvance) maxAdvance = adv;
+      }
+
+      const minWidth = 400;
+      const canvasW = Math.max(maxAdvance + PADDING * 2 + LABEL_MARGIN, minWidth);
+      const canvasH = textLines.length * lineHeight + (textLines.length - 1) * LINE_GAP + PADDING * 2;
+
+      canvas.width = canvasW * DPR;
+      canvas.height = canvasH * DPR;
+      canvas.style.width = canvasW + 'px';
+      canvas.style.height = canvasH + 'px';
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvasW, canvasH);
+
+      for (let li = 0; li < textData.length; li++) {
+        const lineChars = textData[li];
+        const lineText = lineChars.map(c => c.char).join('');
+        const glyphs = font.stringToGlyphs(lineText);
+        const baseline = PADDING + ascender + li * (lineHeight + LINE_GAP);
+        let x = PADDING + LABEL_MARGIN;
+
+        const ascenderY = baseline - ascender;
+        const xHeightY = baseline - xHeight;
+        const descenderY = baseline - descender;
+
+        drawMetricLines(canvasW, baseline, ascenderY, xHeightY, descenderY, li === 0);
+
+        for (let gi = 0; gi < glyphs.length; gi++) {
+          const glyph = glyphs[gi];
+          const charObj = lineChars[gi];
+          const progress = charObj ? getGlyphProgress(charObj) : 1;
+
+          drawPartialGlyph(glyph, x, baseline, progress);
+
+          x += glyph.advanceWidth * scale;
+        }
+      }
+
+      if (selectAll) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        for (let li = 0; li < textData.length; li++) {
+          if (textData[li].length === 0) continue;
+          const baseline = PADDING + ascender + li * (lineHeight + LINE_GAP);
+          const top = baseline - ascender;
+          const bottom = baseline - descender;
+          const x0 = getCursorX(li, 0);
+          const x1 = getCursorX(li, textData[li].length);
+          ctx.fillRect(x0, top, x1 - x0, bottom - top);
+        }
+      }
+
+      if (cursorVisible) {
+        const curX = getCursorX(cursorLine, cursorCol);
+        const baseline = PADDING + ascender + cursorLine * (lineHeight + LINE_GAP);
+        const curTop = baseline - ascender;
+        const curBottom = baseline - descender;
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(curX, curTop);
+        ctx.lineTo(curX, curBottom);
+        ctx.stroke();
+      }
+    }
+
+    function drawMetricLines(canvasW, baseline, ascenderY, xHeightY, descenderY, showLabels) {
+      const lines = [
+        { y: ascenderY,  label: 'Ascender' },
+        { y: xHeightY,   label: 'x-height' },
+        { y: baseline,    label: 'Baseline' },
+        { y: descenderY,  label: 'Descender' },
+      ];
+
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 0.6;
+
+      for (const line of lines) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
+        ctx.beginPath();
+        ctx.moveTo(LABEL_MARGIN + PADDING - 10, line.y);
+        ctx.lineTo(canvasW - PADDING + 10, line.y);
+        ctx.stroke();
+
+        if (showLabels) {
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+          ctx.font = '10px system-ui, sans-serif';
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(line.label, LABEL_MARGIN + PADDING - 16, line.y);
+        }
+      }
+
+      ctx.setLineDash([]);
+      ctx.textAlign = 'left';
+      ctx.restore();
+    }
+
+    function startAnimation(charObj) {
+      const glyphs = font.stringToGlyphs(charObj.char);
+      const g = glyphs[0];
+      const path = g ? g.getPath(0, 0, FONT_SIZE) : { commands: [] };
+      const totalCmds = path.commands.length || 1;
+
+      charObj.done = false;
+      animations.set(charObj.id, {
+        progress: 0,
+        startTime: performance.now(),
+        totalCmds: totalCmds
+      });
+      scheduleFrame();
+    }
+
+    let selectAll = false;
+
+    function clearSelection() {
+      selectAll = false;
+    }
+
+    function deleteAll() {
+      for (const line of textData) {
+        for (const c of line) animations.delete(c.id);
+      }
+      textData = [[]];
+      cursorLine = 0;
+      cursorCol = 0;
+      selectAll = false;
+    }
+
+    canvas.addEventListener('keydown', (e) => {
+      if (!font) return;
+      const key = e.key;
+
+      if (key === 'a' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        selectAll = true;
+        resetBlink();
+        scheduleFrame();
+        return;
+      }
+
+      if (selectAll && (key === 'Backspace' || key === 'Delete')) {
+        e.preventDefault();
+        deleteAll();
+        resetBlink();
+        scheduleFrame();
+        return;
+      }
+
+      if (selectAll && key.length === 1 && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        deleteAll();
+        const newChar = { char: key, id: charIdCounter++, done: false };
+        textData[0].push(newChar);
+        cursorCol = 1;
+        startAnimation(newChar);
+        resetBlink();
+        return;
+      }
+
+      if (selectAll && key === 'Enter') {
+        e.preventDefault();
+        deleteAll();
+        resetBlink();
+        scheduleFrame();
+        return;
+      }
+
+      clearSelection();
+
+      if (key === 'Backspace') {
+        e.preventDefault();
+        if (cursorCol > 0) {
+          const removed = textData[cursorLine].splice(cursorCol - 1, 1)[0];
+          if (removed) animations.delete(removed.id);
+          cursorCol--;
+        } else if (cursorLine > 0) {
+          const prevLen = textData[cursorLine - 1].length;
+          textData[cursorLine - 1] = textData[cursorLine - 1].concat(textData[cursorLine]);
+          textData.splice(cursorLine, 1);
+          cursorLine--;
+          cursorCol = prevLen;
+        }
+        resetBlink();
+        scheduleFrame();
+      } else if (key === 'Delete') {
+        e.preventDefault();
+        if (cursorCol < textData[cursorLine].length) {
+          const removed = textData[cursorLine].splice(cursorCol, 1)[0];
+          if (removed) animations.delete(removed.id);
+        } else if (cursorLine < textData.length - 1) {
+          textData[cursorLine] = textData[cursorLine].concat(textData[cursorLine + 1]);
+          textData.splice(cursorLine + 1, 1);
+        }
+        resetBlink();
+        scheduleFrame();
+      } else if (key === 'Enter') {
+        e.preventDefault();
+        const rest = textData[cursorLine].splice(cursorCol);
+        textData.splice(cursorLine + 1, 0, rest);
+        cursorLine++;
+        cursorCol = 0;
+        resetBlink();
+        scheduleFrame();
+      } else if (key === 'ArrowLeft') {
+        e.preventDefault();
+        if (cursorCol > 0) cursorCol--;
+        else if (cursorLine > 0) { cursorLine--; cursorCol = textData[cursorLine].length; }
+        resetBlink(); scheduleFrame();
+      } else if (key === 'ArrowRight') {
+        e.preventDefault();
+        if (cursorCol < textData[cursorLine].length) cursorCol++;
+        else if (cursorLine < textData.length - 1) { cursorLine++; cursorCol = 0; }
+        resetBlink(); scheduleFrame();
+      } else if (key === 'ArrowUp') {
+        e.preventDefault();
+        if (cursorLine > 0) { cursorLine--; cursorCol = Math.min(cursorCol, textData[cursorLine].length); }
+        resetBlink(); scheduleFrame();
+      } else if (key === 'ArrowDown') {
+        e.preventDefault();
+        if (cursorLine < textData.length - 1) { cursorLine++; cursorCol = Math.min(cursorCol, textData[cursorLine].length); }
+        resetBlink(); scheduleFrame();
+      } else if (key === 'Home') {
+        e.preventDefault(); cursorCol = 0; clearSelection(); resetBlink(); scheduleFrame();
+      } else if (key === 'End') {
+        e.preventDefault(); cursorCol = textData[cursorLine].length; clearSelection(); resetBlink(); scheduleFrame();
+      } else if (key.length === 1 && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        const newChar = { char: key, id: charIdCounter++, done: false };
+        textData[cursorLine].splice(cursorCol, 0, newChar);
+        cursorCol++;
+        startAnimation(newChar);
+        resetBlink();
+      }
+    });
+
+    canvas.addEventListener('click', (e) => {
+      canvas.focus();
+      if (!font) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+
+      const scale = FONT_SIZE / font.unitsPerEm;
+      const ascender = font.ascender * scale;
+      const descender = font.descender * scale;
+      const lineHeight = ascender - descender;
+
+      let bestLine = 0;
+      let bestDist = Infinity;
+      for (let li = 0; li < textData.length; li++) {
+        const baseline = PADDING + ascender + li * (lineHeight + LINE_GAP);
+        const midY = baseline - ascender / 2;
+        const dist = Math.abs(clickY - midY);
+        if (dist < bestDist) { bestDist = dist; bestLine = li; }
+      }
+      cursorLine = bestLine;
+
+      let bestCol = 0;
+      let bestColDist = Infinity;
+      for (let c = 0; c <= textData[cursorLine].length; c++) {
+        const cx = getCursorX(cursorLine, c);
+        const dist = Math.abs(clickX - cx);
+        if (dist < bestColDist) { bestColDist = dist; bestCol = c; }
+      }
+      cursorCol = bestCol;
+      clearSelection();
+      resetBlink(); scheduleFrame();
+    });
+
+    window.addEventListener('resize', () => scheduleFrame());
+    loadFont();
+  </script>
+</body>
+</html>
