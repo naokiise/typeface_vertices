@@ -22,12 +22,17 @@
       cursor: text;
       outline: none;
     }
-    #speed-control {
+    #controls {
       margin-top: 24px;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 24px;
       margin-bottom: 32px;
+    }
+    #speed-control {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
     #speed-control label {
       font-size: 11px;
@@ -59,14 +64,46 @@
       min-width: 36px;
       text-align: right;
     }
+    button {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.25);
+      color: rgba(255,255,255,0.5);
+      padding: 5px 14px;
+      font-size: 11px;
+      border-radius: 4px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    button:hover {
+      border-color: rgba(255,255,255,0.5);
+      color: rgba(255,255,255,0.8);
+    }
+    button.active {
+      border-color: rgba(255,255,255,0.6);
+      color: #fff;
+    }
   </style>
 </head>
 <body>
   <canvas id="canvas" tabindex="0"></canvas>
-  <div id="speed-control">
-    <label>Speed</label>
-    <input type="range" id="speedSlider" min="1" max="100" value="30" />
-    <span id="speed-val">30</span>
+  <div id="controls">
+    <div id="speed-control">
+      <label>Speed</label>
+      <input type="range" id="speedSlider" min="1" max="100" value="30" />
+      <span id="speed-val">30</span>
+    </div>
+    <div id="speed-control">
+      <label>Kerning</label>
+      <input type="range" id="kerningSlider" min="-50" max="200" value="0" />
+      <span id="kerning-val">0</span>
+    </div>
+    <button id="fillToggle">Fill: OFF</button>
+    <button id="kerningToggle" class="active">Kerning: ON</button>
+    <button id="sizeToggle" class="active">Size: ON</button>
+    <button id="fadeToggle" class="active">Fade: ON</button>
+    <button id="soundToggle" class="active">Sound: ON</button>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
@@ -75,6 +112,102 @@
     const ctx = canvas.getContext('2d');
     const speedSlider = document.getElementById('speedSlider');
     const speedVal = document.getElementById('speed-val');
+    const fillToggle = document.getElementById('fillToggle');
+    const kerningToggle = document.getElementById('kerningToggle');
+    const sizeToggle = document.getElementById('sizeToggle');
+    const kerningSlider = document.getElementById('kerningSlider');
+    const kerningVal = document.getElementById('kerning-val');
+    const fadeToggle = document.getElementById('fadeToggle');
+    const soundToggle = document.getElementById('soundToggle');
+
+    let showFill = false;
+    let kerningEnabled = true;
+    let sizeEnabled = true;
+    let fadeEnabled = true;
+    let soundEnabled = true;
+    const FADE_DURATION = 3000;
+
+    fillToggle.addEventListener('click', () => {
+      showFill = !showFill;
+      fillToggle.textContent = showFill ? 'Fill: ON' : 'Fill: OFF';
+      fillToggle.classList.toggle('active', showFill);
+      canvas.focus();
+      scheduleFrame();
+    });
+
+    kerningToggle.addEventListener('click', () => {
+      kerningEnabled = !kerningEnabled;
+      kerningToggle.textContent = kerningEnabled ? 'Kerning: ON' : 'Kerning: OFF';
+      kerningToggle.classList.toggle('active', kerningEnabled);
+      canvas.focus();
+      scheduleFrame();
+    });
+
+    sizeToggle.addEventListener('click', () => {
+      sizeEnabled = !sizeEnabled;
+      sizeToggle.textContent = sizeEnabled ? 'Size: ON' : 'Size: OFF';
+      sizeToggle.classList.toggle('active', sizeEnabled);
+      canvas.focus();
+      scheduleFrame();
+    });
+
+    fadeToggle.addEventListener('click', () => {
+      fadeEnabled = !fadeEnabled;
+      fadeToggle.textContent = fadeEnabled ? 'Fade: ON' : 'Fade: OFF';
+      fadeToggle.classList.toggle('active', fadeEnabled);
+      canvas.focus();
+      scheduleFrame();
+    });
+
+    soundToggle.addEventListener('click', () => {
+      soundEnabled = !soundEnabled;
+      soundToggle.textContent = soundEnabled ? 'Sound: ON' : 'Sound: OFF';
+      soundToggle.classList.toggle('active', soundEnabled);
+      canvas.focus();
+    });
+
+    const phonetics = {
+      'a': 'ay', 'b': 'bee', 'c': 'see', 'd': 'dee', 'e': 'ee',
+      'f': 'eff', 'g': 'jee', 'h': 'aitch', 'i': 'eye', 'j': 'jay',
+      'k': 'kay', 'l': 'ell', 'm': 'em', 'n': 'en', 'o': 'oh',
+      'p': 'pee', 'q': 'cue', 'r': 'are', 's': 'ess', 't': 'tee',
+      'u': 'you', 'v': 'vee', 'w': 'double you', 'x': 'ex', 'y': 'why',
+      'z': 'zed',
+      '0': 'zero', '1': 'one', '2': 'two', '3': 'three', '4': 'four',
+      '5': 'five', '6': 'six', '7': 'seven', '8': 'eight', '9': 'nine',
+      ' ': 'space', '.': 'dot', ',': 'comma', '!': 'exclamation',
+      '?': 'question', '@': 'at', '#': 'hash', '$': 'dollar',
+      '&': 'and', '+': 'plus', '-': 'minus', '=': 'equals',
+      '/': 'slash', '\\': 'backslash', ':': 'colon', ';': 'semicolon',
+      '(': 'open paren', ')': 'close paren',
+      '[': 'open bracket', ']': 'close bracket',
+      '{': 'open brace', '}': 'close brace',
+      '<': 'less than', '>': 'greater than',
+      '_': 'underscore', '~': 'tilde', '`': 'backtick',
+      '"': 'quote', "'": 'apostrophe', '|': 'pipe',
+      '%': 'percent', '^': 'caret', '*': 'asterisk',
+    };
+
+    function pronounceChar(ch) {
+      if (!soundEnabled) return;
+      speechSynthesis.cancel();
+      const text = phonetics[ch.toLowerCase()] || ch;
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.lang = 'en-US';
+      utt.rate = 1.1;
+      utt.pitch = 1.0;
+      utt.volume = 0.8;
+      speechSynthesis.speak(utt);
+    }
+
+    let globalKerning = 0;
+
+    kerningSlider.addEventListener('input', () => {
+      globalKerning = parseInt(kerningSlider.value);
+      kerningVal.textContent = globalKerning;
+      canvas.focus();
+      scheduleFrame();
+    });
 
     const DPR = window.devicePixelRatio || 1;
     const FONT_SIZE = 260;
@@ -93,10 +226,18 @@
 
     let charIdCounter = 0;
     let textData = [
-      'Inter'.split('').map(c => ({ char: c, id: charIdCounter++, done: true }))
+      'Inter'.split('').map(c => ({ char: c, id: charIdCounter++, done: true, kerning: 0, fontSize: FONT_SIZE }))
     ];
 
     const animations = new Map();
+
+    let activeKeyChar = null;
+    let activeKeyDownTime = 0;
+    const KERNING_RATE = 0.15;
+    const MAX_KERNING = 300;
+    const SIZE_RATE = 0.12;
+    const MIN_FONT_SIZE = 60;
+    const MAX_FONT_SIZE = 500;
 
     function getTextLines() {
       return textData.map(line => line.map(c => c.char).join(''));
@@ -130,9 +271,22 @@
       animFrameId = null;
       draw();
 
-      let hasActive = false;
-      for (const [id, anim] of animations) {
-        if (anim.progress < 1) { hasActive = true; break; }
+      let hasActive = activeKeyChar !== null;
+      if (!hasActive) {
+        for (const [id, anim] of animations) {
+          if (anim.direction === -1 || anim.progress < 1) { hasActive = true; break; }
+        }
+      }
+      if (!hasActive && (performance.now() - flashTime) < FLASH_DURATION) {
+        hasActive = true;
+      }
+      if (!hasActive && fadeEnabled) {
+        const now = performance.now();
+        outer: for (const line of textData) {
+          for (const c of line) {
+            if (c.doneTime && (now - c.doneTime) < FADE_DURATION) { hasActive = true; break outer; }
+          }
+        }
       }
       if (hasActive) {
         animFrameId = requestAnimationFrame(renderFrame);
@@ -158,12 +312,17 @@
     }
 
     function getCursorX(lineIndex, col) {
-      const scale = FONT_SIZE / font.unitsPerEm;
       const lineChars = textData[lineIndex] || [];
       const text = lineChars.slice(0, col).map(c => c.char).join('');
       const glyphs = font.stringToGlyphs(text);
       let x = PADDING + LABEL_MARGIN;
-      for (const g of glyphs) x += g.advanceWidth * scale;
+      for (let i = 0; i < glyphs.length; i++) {
+        const cfs = (lineChars[i] && sizeEnabled) ? lineChars[i].fontSize : FONT_SIZE;
+        const s = cfs / font.unitsPerEm;
+        x += glyphs[i].advanceWidth * s;
+        if (lineChars[i] && kerningEnabled) x += lineChars[i].kerning;
+        x += globalKerning;
+      }
       return x;
     }
 
@@ -179,24 +338,62 @@
       const speed = getSpeed();
       const cmdPerSec = speed * 1.5;
 
+      const toRemove = [];
       for (const [id, anim] of animations) {
-        if (anim.progress >= 1) continue;
         const elapsed = (now - anim.startTime) / 1000;
         const totalCmds = anim.totalCmds || 20;
-        anim.progress = Math.min(1, (elapsed * cmdPerSec) / totalCmds);
-        if (anim.progress >= 1) {
-          anim.progress = 1;
-          for (const line of textData) {
-            for (const c of line) {
-              if (c.id === id) c.done = true;
+        const rawProgress = (elapsed * cmdPerSec) / totalCmds;
+
+        if (anim.direction === -1) {
+          anim.progress = Math.max(0, 1 - rawProgress);
+          if (anim.progress <= 0) {
+            toRemove.push(id);
+          }
+        } else {
+          if (anim.progress >= 1) continue;
+          anim.progress = Math.min(1, rawProgress);
+          if (anim.progress >= 1) {
+            anim.progress = 1;
+            for (const line of textData) {
+              for (const c of line) {
+                if (c.id === id) {
+                  c.done = true;
+                  if (!c.doneTime) c.doneTime = now;
+                }
+              }
             }
           }
         }
       }
+
+      for (const id of toRemove) {
+        animations.delete(id);
+        for (const line of textData) {
+          const idx = line.findIndex(c => c.id === id);
+          if (idx !== -1) {
+            line.splice(idx, 1);
+            if (cursorCol > idx && cursorLine === textData.indexOf(line)) {
+              cursorCol = Math.max(0, cursorCol - 1);
+            }
+            break;
+          }
+        }
+      }
+
+      if (activeKeyChar) {
+        const held = now - activeKeyDownTime;
+        if (kerningEnabled) {
+          activeKeyChar.kerning = Math.min(MAX_KERNING, held * KERNING_RATE);
+        }
+        if (sizeEnabled) {
+          activeKeyChar.fontSize = Math.min(MAX_FONT_SIZE, FONT_SIZE + held * SIZE_RATE);
+        }
+      }
     }
 
-    function drawPartialGlyph(glyph, x, baseline, progress) {
-      const path = glyph.getPath(x, baseline, FONT_SIZE);
+    function drawPartialGlyph(glyph, x, baseline, progress, charFontSize, isDeleting, fadeT, fg) {
+      const fs = charFontSize || FONT_SIZE;
+      const path = glyph.getPath(x, baseline, fs);
       const cmds = path.commands;
       const visibleCount = Math.ceil(progress * cmds.length);
 
@@ -211,7 +408,30 @@
           case 'Z': ctx.closePath(); break;
         }
       }
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+      if (isDeleting && progress < 1) {
+        ctx.fillStyle = 'rgba(255, 255, 0, 1)';
+        ctx.fill();
+      } else if (progress < 1) {
+        ctx.fillStyle = 'rgba(255, 0, 0, 1)';
+        ctx.fill();
+      } else if (fadeT < 1) {
+        if (fadeT < 0.5) {
+          const t = fadeT / 0.5;
+          const r = 255;
+          const g = Math.round(t * 255);
+          const b = Math.round(t * 255);
+          ctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
+        } else {
+          const t = (fadeT - 0.5) / 0.5;
+          const a = 1 - t;
+          ctx.fillStyle = 'rgba(255, 255, 255, ' + a + ')';
+        }
+        ctx.fill();
+      } else if (showFill) {
+        ctx.fillStyle = 'rgba(' + fg + ', 0.85)';
+        ctx.fill();
+      }
+      ctx.strokeStyle = 'rgba(' + fg + ', 0.85)';
       ctx.lineWidth = 1.2;
       ctx.stroke();
 
@@ -233,7 +453,7 @@
 
       let lastOnCurve = null;
       ctx.save();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.strokeStyle = 'rgba(' + fg + ', 0.15)';
       ctx.lineWidth = 0.7;
       ctx.setLineDash([3, 3]);
       for (let i = 0; i < visibleCount; i++) {
@@ -274,12 +494,12 @@
         if (pt.onCurve) {
           ctx.beginPath();
           ctx.arc(pt.x, pt.y, ON_CURVE_RADIUS, 0, Math.PI * 2);
-          ctx.fillStyle = '#fff';
+          ctx.fillStyle = 'rgb(' + fg + ')';
           ctx.fill();
         } else {
           ctx.beginPath();
           ctx.arc(pt.x, pt.y, OFF_CURVE_RADIUS, 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+          ctx.strokeStyle = 'rgba(' + fg + ', 0.5)';
           ctx.lineWidth = 1;
           ctx.stroke();
         }
@@ -289,18 +509,36 @@
       ctx.textBaseline = 'middle';
       for (const pt of points) {
         if (pt.onCurve) {
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.fillStyle = 'rgba(' + fg + ', 0.6)';
         } else {
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+          ctx.fillStyle = 'rgba(' + fg + ', 0.35)';
         }
         ctx.fillText(String(pt.index), pt.x + 6, pt.y - 1);
       }
+    }
+
+    let flashTime = 0;
+    const FLASH_DURATION = 150;
+    let bodyFlashTimer = null;
+
+    function triggerFlash() {
+      flashTime = performance.now();
     }
 
     function draw() {
       if (!font) return;
 
       updateAnimations();
+
+      const now = performance.now();
+      const flashActive = (now - flashTime) < FLASH_DURATION;
+      const flashT = flashActive ? 1 - (now - flashTime) / FLASH_DURATION : 0;
+      const bgVal = Math.round(flashT * 255);
+      const bg = 'rgb(' + bgVal + ',' + bgVal + ',' + bgVal + ')';
+      const fgVal = 255 - bgVal;
+      const fg = fgVal + ', ' + fgVal + ', ' + fgVal;
+
+      document.body.style.backgroundColor = bg;
 
       const textLines = getTextLines();
       const scale = FONT_SIZE / font.unitsPerEm;
@@ -313,16 +551,34 @@
       const lineHeight = ascender - descender;
 
       let maxAdvance = 0;
-      for (const line of textLines) {
-        const glyphs = font.stringToGlyphs(line);
+      for (let li = 0; li < textData.length; li++) {
+        const glyphs = font.stringToGlyphs(textLines[li]);
         let adv = 0;
-        for (const g of glyphs) adv += g.advanceWidth * scale;
+        for (let i = 0; i < glyphs.length; i++) {
+          const cfs = (textData[li][i] && sizeEnabled) ? textData[li][i].fontSize : FONT_SIZE;
+          adv += glyphs[i].advanceWidth * (cfs / font.unitsPerEm);
+          if (textData[li][i] && kerningEnabled) adv += textData[li][i].kerning;
+          adv += globalKerning;
+        }
         if (adv > maxAdvance) maxAdvance = adv;
       }
 
+      let maxCharSize = FONT_SIZE;
+      if (sizeEnabled) {
+        for (const line of textData) {
+          for (const c of line) {
+            if (c.fontSize > maxCharSize) maxCharSize = c.fontSize;
+          }
+        }
+      }
+      const maxScale = maxCharSize / font.unitsPerEm;
+      const maxAsc = font.ascender * maxScale;
+      const maxDesc = font.descender * maxScale;
+      const maxLineH = maxAsc - maxDesc;
+
       const minWidth = 400;
       const canvasW = Math.max(maxAdvance + PADDING * 2 + LABEL_MARGIN, minWidth);
-      const canvasH = textLines.length * lineHeight + (textLines.length - 1) * LINE_GAP + PADDING * 2;
+      const canvasH = textLines.length * Math.max(lineHeight, maxLineH) + (textLines.length - 1) * LINE_GAP + PADDING * 2;
 
       canvas.width = canvasW * DPR;
       canvas.height = canvasH * DPR;
@@ -330,7 +586,7 @@
       canvas.style.height = canvasH + 'px';
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
-      ctx.fillStyle = '#000';
+      ctx.fillStyle = bg;
       ctx.fillRect(0, 0, canvasW, canvasH);
 
       for (let li = 0; li < textData.length; li++) {
@@ -344,21 +600,29 @@
         const xHeightY = baseline - xHeight;
         const descenderY = baseline - descender;
 
-        drawMetricLines(canvasW, baseline, ascenderY, xHeightY, descenderY, li === 0);
+        drawMetricLines(canvasW, baseline, ascenderY, xHeightY, descenderY, li === 0, fg);
 
         for (let gi = 0; gi < glyphs.length; gi++) {
           const glyph = glyphs[gi];
           const charObj = lineChars[gi];
           const progress = charObj ? getGlyphProgress(charObj) : 1;
+          const cfs = (charObj && sizeEnabled) ? charObj.fontSize : FONT_SIZE;
+          const isDeleting = charObj && charObj.deleting;
+          let fadeT = 1;
+          if (fadeEnabled && charObj && charObj.doneTime && !isDeleting) {
+            fadeT = Math.min(1, (performance.now() - charObj.doneTime) / FADE_DURATION);
+          }
 
-          drawPartialGlyph(glyph, x, baseline, progress);
+          drawPartialGlyph(glyph, x, baseline, progress, cfs, isDeleting, fadeT, fg);
 
-          x += glyph.advanceWidth * scale;
+          x += glyph.advanceWidth * (cfs / font.unitsPerEm);
+          if (charObj && kerningEnabled) x += charObj.kerning;
+          x += globalKerning;
         }
       }
 
       if (selectAll) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.fillStyle = 'rgba(' + fg + ', 0.08)';
         for (let li = 0; li < textData.length; li++) {
           if (textData[li].length === 0) continue;
           const baseline = PADDING + ascender + li * (lineHeight + LINE_GAP);
@@ -376,7 +640,7 @@
         const curTop = baseline - ascender;
         const curBottom = baseline - descender;
 
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.strokeStyle = 'rgba(' + fg + ', 0.9)';
         ctx.lineWidth = 1.5;
         ctx.setLineDash([]);
         ctx.beginPath();
@@ -386,7 +650,7 @@
       }
     }
 
-    function drawMetricLines(canvasW, baseline, ascenderY, xHeightY, descenderY, showLabels) {
+    function drawMetricLines(canvasW, baseline, ascenderY, xHeightY, descenderY, showLabels, fg) {
       const lines = [
         { y: ascenderY,  label: 'Ascender' },
         { y: xHeightY,   label: 'x-height' },
@@ -399,14 +663,14 @@
       ctx.lineWidth = 0.6;
 
       for (const line of lines) {
-        ctx.strokeStyle = 'rgba(255, 255, 255, 1)';
+        ctx.strokeStyle = 'rgb(' + fg + ')';
         ctx.beginPath();
         ctx.moveTo(LABEL_MARGIN + PADDING - 10, line.y);
         ctx.lineTo(canvasW - PADDING + 10, line.y);
         ctx.stroke();
 
         if (showLabels) {
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+          ctx.fillStyle = 'rgba(' + fg + ', 0.35)';
           ctx.font = '10px system-ui, sans-serif';
           ctx.textAlign = 'right';
           ctx.textBaseline = 'middle';
@@ -429,7 +693,25 @@
       animations.set(charObj.id, {
         progress: 0,
         startTime: performance.now(),
-        totalCmds: totalCmds
+        totalCmds: totalCmds,
+        direction: 1
+      });
+      scheduleFrame();
+    }
+
+    function startDeleteAnimation(charObj) {
+      const glyphs = font.stringToGlyphs(charObj.char);
+      const g = glyphs[0];
+      const path = g ? g.getPath(0, 0, FONT_SIZE) : { commands: [] };
+      const totalCmds = path.commands.length || 1;
+
+      charObj.done = false;
+      charObj.deleting = true;
+      animations.set(charObj.id, {
+        progress: 1,
+        startTime: performance.now(),
+        totalCmds: totalCmds,
+        direction: -1
       });
       scheduleFrame();
     }
@@ -472,10 +754,15 @@
 
       if (selectAll && key.length === 1 && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
+        if (e.repeat) return;
         deleteAll();
-        const newChar = { char: key, id: charIdCounter++, done: false };
+        const newChar = { char: key, id: charIdCounter++, done: false, kerning: 0, fontSize: FONT_SIZE };
         textData[0].push(newChar);
         cursorCol = 1;
+        activeKeyChar = newChar;
+        activeKeyDownTime = performance.now();
+        triggerFlash();
+        pronounceChar(key);
         startAnimation(newChar);
         resetBlink();
         return;
@@ -494,9 +781,12 @@
       if (key === 'Backspace') {
         e.preventDefault();
         if (cursorCol > 0) {
-          const removed = textData[cursorLine].splice(cursorCol - 1, 1)[0];
-          if (removed) animations.delete(removed.id);
-          cursorCol--;
+          const target = textData[cursorLine][cursorCol - 1];
+          if (target && !target.deleting) {
+            triggerFlash();
+            startDeleteAnimation(target);
+            cursorCol--;
+          }
         } else if (cursorLine > 0) {
           const prevLen = textData[cursorLine - 1].length;
           textData[cursorLine - 1] = textData[cursorLine - 1].concat(textData[cursorLine]);
@@ -509,8 +799,11 @@
       } else if (key === 'Delete') {
         e.preventDefault();
         if (cursorCol < textData[cursorLine].length) {
-          const removed = textData[cursorLine].splice(cursorCol, 1)[0];
-          if (removed) animations.delete(removed.id);
+          const target = textData[cursorLine][cursorCol];
+          if (target && !target.deleting) {
+            triggerFlash();
+            startDeleteAnimation(target);
+          }
         } else if (cursorLine < textData.length - 1) {
           textData[cursorLine] = textData[cursorLine].concat(textData[cursorLine + 1]);
           textData.splice(cursorLine + 1, 1);
@@ -549,11 +842,23 @@
         e.preventDefault(); cursorCol = textData[cursorLine].length; clearSelection(); resetBlink(); scheduleFrame();
       } else if (key.length === 1 && !e.ctrlKey && !e.metaKey) {
         e.preventDefault();
-        const newChar = { char: key, id: charIdCounter++, done: false };
+        if (e.repeat) return;
+        const newChar = { char: key, id: charIdCounter++, done: false, kerning: 0, fontSize: FONT_SIZE };
         textData[cursorLine].splice(cursorCol, 0, newChar);
         cursorCol++;
+        activeKeyChar = newChar;
+        activeKeyDownTime = performance.now();
+        triggerFlash();
+        pronounceChar(key);
         startAnimation(newChar);
         resetBlink();
+      }
+    });
+
+    canvas.addEventListener('keyup', (e) => {
+      if (activeKeyChar && e.key === activeKeyChar.char) {
+        activeKeyChar = null;
+        scheduleFrame();
       }
     });
 
