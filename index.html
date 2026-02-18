@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Inter — Vertices</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -21,60 +21,65 @@
       margin-top: 32px;
       cursor: text;
       outline: none;
+      max-width: 100vw;
     }
     #controls {
       margin-top: 24px;
       display: flex;
       align-items: center;
-      gap: 24px;
+      gap: 16px;
       margin-bottom: 32px;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 0 16px;
     }
-    #speed-control {
+    .slider-group {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
     }
-    #speed-control label {
+    .slider-group label {
       font-size: 11px;
       opacity: 0.4;
       text-transform: uppercase;
       letter-spacing: 0.1em;
     }
-    #speed-control input[type="range"] {
+    .slider-group input[type="range"] {
       -webkit-appearance: none;
       appearance: none;
-      width: 180px;
+      width: 140px;
       height: 2px;
       background: rgba(255,255,255,0.2);
       border-radius: 1px;
       outline: none;
     }
-    #speed-control input[type="range"]::-webkit-slider-thumb {
+    .slider-group input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 12px;
-      height: 12px;
+      width: 20px;
+      height: 20px;
       border-radius: 50%;
       background: #fff;
       cursor: pointer;
     }
-    #speed-val {
+    .slider-val {
       font-size: 11px;
       opacity: 0.4;
-      min-width: 36px;
+      min-width: 30px;
       text-align: right;
     }
     button {
       background: transparent;
       border: 1px solid rgba(255,255,255,0.25);
       color: rgba(255,255,255,0.5);
-      padding: 5px 14px;
+      padding: 6px 14px;
       font-size: 11px;
       border-radius: 4px;
       cursor: pointer;
       text-transform: uppercase;
       letter-spacing: 0.1em;
       transition: border-color 0.2s, color 0.2s;
+      -webkit-tap-highlight-color: transparent;
     }
     button:hover {
       border-color: rgba(255,255,255,0.5);
@@ -84,34 +89,177 @@
       border-color: rgba(255,255,255,0.6);
       color: #fff;
     }
+    #hiddenInput {
+      position: fixed;
+      top: -100px;
+      left: 0;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      font-size: 16px;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: transparent;
+      caret-color: transparent;
+    }
+    @media (max-width: 600px) {
+      canvas { margin-top: 16px; }
+      #controls { gap: 10px; margin-top: 16px; margin-bottom: 16px; }
+      .slider-group input[type="range"] { width: 100px; }
+      button { padding: 8px 12px; font-size: 10px; }
+    }
+
+    /* Mobile Patatap-style grid */
+    #mobileUI {
+      display: none;
+      flex-direction: column;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+    #mobileUI.visible { display: flex; }
+
+    #mobileCanvas {
+      display: block;
+      width: 100%;
+      flex: 0 0 auto;
+    }
+
+    #letterGrid {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 6px 4px;
+      background: rgba(255,255,255,0.02);
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    .kb-row {
+      display: flex;
+      flex: 1;
+      gap: 4px;
+      justify-content: center;
+    }
+    .grid-cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.4);
+      font-family: system-ui, sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      border-radius: 6px;
+      flex: 1;
+      max-width: 42px;
+      transition: background 0.08s, color 0.08s;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .grid-cell:active, .grid-cell.flash {
+      background: rgba(255,255,255,0.95);
+      color: #000;
+    }
+    .grid-cell.wide {
+      flex: 1.4;
+      max-width: 60px;
+      font-size: 12px;
+    }
+    .grid-cell.space {
+      flex: 5;
+      max-width: none;
+      font-size: 12px;
+      color: rgba(255,255,255,0.25);
+      letter-spacing: 0.1em;
+    }
+    .grid-cell.fn {
+      font-size: 12px;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0;
+    }
+    .grid-cell.fn:active, .grid-cell.fn.flash {
+      background: rgba(255,100,100,0.6);
+      color: #fff;
+    }
+    .grid-cell .ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.3);
+      transform: scale(0);
+      animation: rippleAnim 0.4s ease-out forwards;
+      pointer-events: none;
+    }
+    @keyframes rippleAnim {
+      to { transform: scale(2.5); opacity: 0; }
+    }
+
+    #mobileToolbar {
+      display: flex;
+      height: 44px;
+      flex: 0 0 44px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      background: rgba(255,255,255,0.03);
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    #mobileToolbar button {
+      border: none;
+      padding: 4px 10px;
+      font-size: 10px;
+    }
   </style>
 </head>
 <body>
+  <input id="hiddenInput" type="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" aria-label="Text input" />
   <canvas id="canvas" tabindex="0"></canvas>
   <div id="controls">
-    <div id="speed-control">
+    <div class="slider-group">
       <label>Speed</label>
-      <input type="range" id="speedSlider" min="1" max="100" value="30" />
-      <span id="speed-val">30</span>
+      <input type="range" id="speedSlider" min="1" max="100" value="30" aria-label="Speed" />
+      <span class="slider-val" id="speed-val">30</span>
     </div>
-    <div id="speed-control">
+    <div class="slider-group">
       <label>Kerning</label>
-      <input type="range" id="kerningSlider" min="-50" max="200" value="0" />
-      <span id="kerning-val">0</span>
+      <input type="range" id="kerningSlider" min="-50" max="200" value="0" aria-label="Kerning" />
+      <span class="slider-val" id="kerning-val">0</span>
     </div>
     <button id="fillToggle">Fill: OFF</button>
     <button id="kerningToggle" class="active">Kerning: ON</button>
     <button id="sizeToggle" class="active">Size: ON</button>
     <button id="fadeToggle" class="active">Fade: ON</button>
-    <button id="soundToggle" class="active">Sound: ON</button>
+    <button id="soundToggle" class="active">Sound: VOICE</button>
+  </div>
+
+  <div id="mobileUI">
+    <canvas id="mobileCanvas"></canvas>
+    <div id="letterGrid"></div>
+    <div id="mobileToolbar">
+      <button id="mClear">CLEAR</button>
+      <button id="mSound" class="active">SOUND: VOICE</button>
+      <button id="mFill">FILL: OFF</button>
+      <button id="mSpeed">SPEED</button>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
+    const hiddenInput = document.getElementById('hiddenInput');
     const speedSlider = document.getElementById('speedSlider');
     const speedVal = document.getElementById('speed-val');
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || ('ontouchstart' in window && window.innerWidth < 900);
     const fillToggle = document.getElementById('fillToggle');
     const kerningToggle = document.getElementById('kerningToggle');
     const sizeToggle = document.getElementById('sizeToggle');
@@ -124,6 +272,8 @@
     let kerningEnabled = true;
     let sizeEnabled = true;
     let fadeEnabled = true;
+    const SOUND_MODES = ['OFF', 'VOICE', 'DRUMS'];
+    let soundMode = 1;
     let soundEnabled = true;
     const FADE_DURATION = 3000;
 
@@ -160,8 +310,9 @@
     });
 
     soundToggle.addEventListener('click', () => {
-      soundEnabled = !soundEnabled;
-      soundToggle.textContent = soundEnabled ? 'Sound: ON' : 'Sound: OFF';
+      soundMode = (soundMode + 1) % SOUND_MODES.length;
+      soundEnabled = soundMode > 0;
+      soundToggle.textContent = 'Sound: ' + SOUND_MODES[soundMode];
       soundToggle.classList.toggle('active', soundEnabled);
       canvas.focus();
     });
@@ -188,16 +339,292 @@
       '%': 'percent', '^': 'caret', '*': 'asterisk',
     };
 
-    function pronounceChar(ch) {
+    let currentUtterance = null;
+
+    const reversePhonetics = {};
+    for (const [k, v] of Object.entries(phonetics)) {
+      reversePhonetics[k] = v.split('').reverse().join('');
+    }
+
+    function pronounceChar(ch, reverse) {
       if (!soundEnabled) return;
-      speechSynthesis.cancel();
-      const text = phonetics[ch.toLowerCase()] || ch;
+      if (soundMode === 2) {
+        playDrum(ch.toLowerCase(), reverse);
+        return;
+      }
+      const key = ch.toLowerCase();
+      const text = reverse
+        ? (reversePhonetics[key] || key.split('').reverse().join(''))
+        : (phonetics[key] || ch);
+      const rate = reverse ? 0.7 : 1.1;
+      const pitch = reverse ? 0.5 : 1.0;
       const utt = new SpeechSynthesisUtterance(text);
       utt.lang = 'en-US';
-      utt.rate = 1.1;
-      utt.pitch = 1.0;
-      utt.volume = 0.8;
+      utt.rate = rate;
+      utt.pitch = pitch;
+      utt.volume = 1.0;
+      currentUtterance = utt;
       speechSynthesis.speak(utt);
+    }
+
+    setInterval(() => {
+      if (speechSynthesis.speaking) {
+        speechSynthesis.pause();
+        speechSynthesis.resume();
+      }
+    }, 5000);
+
+    /* ===== Drum Synthesizer (Web Audio API) ===== */
+    let drumCtx = null;
+    let drumReady = false;
+    let drumDest = null;
+    let drumAudioEl = null;
+
+    function getDrumCtx() {
+      if (!drumCtx) {
+        drumCtx = new (window.AudioContext || window.webkitAudioContext)();
+        drumDest = drumCtx.createMediaStreamDestination();
+        drumAudioEl = new Audio();
+        drumAudioEl.srcObject = drumDest.stream;
+        drumAudioEl.play().catch(() => {});
+      }
+      if (drumCtx.state === 'suspended') {
+        drumCtx.resume().then(() => {
+          drumReady = true;
+        });
+      } else {
+        drumReady = true;
+      }
+      return drumCtx;
+    }
+
+    function getDrumOutput() {
+      return drumDest || getDrumCtx().destination;
+    }
+
+    let iosAudioUnlocked = false;
+    function unlockIOSAudio() {
+      if (iosAudioUnlocked) return;
+      iosAudioUnlocked = true;
+      getDrumCtx();
+      const silentDataUri = 'data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAAAAAAAAAAAAYYoRBqpAAAAAAD/+1DEAAAHAAGf9AAAIiMmMz888EAAAAABSQ0iFBAFBAMBMH4Pg+D8Hw+D9+sEAfB8HwfP1AoFHKAgCAIf/lAQBAEP/ygIAgCH/5QEAQBD/8oCAJxAAAAAAAADMYOtJZ0nMSGNJhkgoA0GGCCRB1g/Udf6gro6xkZGP///PUdf0dHWMjIx///0dGBn//////////////////////////////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//tQxAADwAABpAAAACAAADSAAAAEAAAGkAAAAIAAANIAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+      const audio = new Audio(silentDataUri);
+      audio.play().catch(() => {});
+    }
+
+    document.addEventListener('touchstart', function initAudio() {
+      unlockIOSAudio();
+      document.removeEventListener('touchstart', initAudio);
+    }, { once: true });
+    document.addEventListener('click', function initAudioClick() {
+      unlockIOSAudio();
+      document.removeEventListener('click', initAudioClick);
+    }, { once: true });
+
+    const drumMap = {
+      'a': 'kick',       'b': 'snare',      'c': 'hihatClosed', 'd': 'hihatOpen',
+      'e': 'tomHigh',    'f': 'tomMid',      'g': 'tomLow',      'h': 'clap',
+      'i': 'rimshot',    'j': 'cowbell',     'k': 'crash',       'l': 'ride',
+      'm': 'kick2',      'n': 'snare2',      'o': 'shaker',      'p': 'clave',
+      'q': 'congaLow',   'r': 'congaHigh',   's': 'tambourine',  't': 'sideStick',
+      'u': 'kickDeep',   'v': 'snareTight',  'w': 'tomFloor',    'x': 'crossStick',
+      'y': 'splash',     'z': 'china',
+      '0': 'kick',       '1': 'hihatClosed', '2': 'snare',       '3': 'hihatOpen',
+      '4': 'tomHigh',    '5': 'tomMid',      '6': 'tomLow',      '7': 'clap',
+      '8': 'crash',      '9': 'ride',
+      ' ': 'kick',       '.': 'hihatClosed', ',': 'hihatClosed',  '!': 'crash',
+      '?': 'splash',     '-': 'rimshot',
+    };
+
+    function createNoise(ctx, duration) {
+      const len = ctx.sampleRate * duration;
+      const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      return buf;
+    }
+
+    function playDrum(ch, reverse) {
+      const ctx = getDrumCtx();
+      if (ctx.state !== 'running') {
+        ctx.resume().then(() => playDrumNow(ctx, ch, reverse));
+        return;
+      }
+      playDrumNow(ctx, ch, reverse);
+    }
+
+    function playDrumNow(ctx, ch, reverse) {
+      const t = ctx.currentTime;
+      const type = drumMap[ch] || 'hihatClosed';
+      const vol = reverse ? 0.5 : 1.0;
+      const pitchMul = reverse ? 0.6 : 1.0;
+      const decayMul = reverse ? 1.8 : 1.0;
+      const out = getDrumOutput();
+      switch (type) {
+        case 'kick': case 'kick2': case 'kickDeep': {
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.type = 'sine';
+          const baseF = type === 'kickDeep' ? 40 : type === 'kick2' ? 55 : 50;
+          osc.frequency.setValueAtTime(baseF * 3 * pitchMul, t);
+          osc.frequency.exponentialRampToValueAtTime(baseF * pitchMul, t + 0.07);
+          g.gain.setValueAtTime(vol, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.4 * decayMul);
+          osc.connect(g).connect(out);
+          osc.start(t); osc.stop(t + 0.5 * decayMul);
+          break;
+        }
+        case 'snare': case 'snare2': case 'snareTight': {
+          const noise = ctx.createBufferSource();
+          noise.buffer = createNoise(ctx, 0.2 * decayMul);
+          const nf = ctx.createBiquadFilter();
+          nf.type = 'highpass';
+          nf.frequency.value = type === 'snareTight' ? 3000 : 2000;
+          const ng = ctx.createGain();
+          ng.gain.setValueAtTime(vol * 0.8, t);
+          ng.gain.exponentialRampToValueAtTime(0.001, t + 0.15 * decayMul);
+          noise.connect(nf).connect(ng).connect(out);
+          noise.start(t);
+          const osc = ctx.createOscillator();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime((type === 'snare2' ? 200 : 180) * pitchMul, t);
+          const og = ctx.createGain();
+          og.gain.setValueAtTime(vol * 0.6, t);
+          og.gain.exponentialRampToValueAtTime(0.001, t + 0.08 * decayMul);
+          osc.connect(og).connect(out);
+          osc.start(t); osc.stop(t + 0.2 * decayMul);
+          break;
+        }
+        case 'hihatClosed': case 'hihatOpen': {
+          const noise = ctx.createBufferSource();
+          const dur = type === 'hihatOpen' ? 0.3 : 0.08;
+          noise.buffer = createNoise(ctx, dur * decayMul);
+          const f = ctx.createBiquadFilter();
+          f.type = 'highpass';
+          f.frequency.value = 7000;
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(vol * 0.5, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + dur * decayMul);
+          noise.connect(f).connect(g).connect(out);
+          noise.start(t);
+          break;
+        }
+        case 'tomHigh': case 'tomMid': case 'tomLow': case 'tomFloor': {
+          const freqs = { tomHigh: 240, tomMid: 180, tomLow: 130, tomFloor: 90 };
+          const osc = ctx.createOscillator();
+          osc.type = 'sine';
+          const bf = freqs[type] * pitchMul;
+          osc.frequency.setValueAtTime(bf * 1.5, t);
+          osc.frequency.exponentialRampToValueAtTime(bf, t + 0.05);
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(vol * 0.7, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.25 * decayMul);
+          osc.connect(g).connect(out);
+          osc.start(t); osc.stop(t + 0.3 * decayMul);
+          break;
+        }
+        case 'clap': {
+          for (let i = 0; i < 3; i++) {
+            const n = ctx.createBufferSource();
+            n.buffer = createNoise(ctx, 0.02);
+            const f = ctx.createBiquadFilter();
+            f.type = 'bandpass'; f.frequency.value = 2500;
+            const g = ctx.createGain();
+            g.gain.setValueAtTime(vol * 0.6, t + i * 0.015);
+            g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.015 + 0.03);
+            n.connect(f).connect(g).connect(out);
+            n.start(t + i * 0.015);
+          }
+          const tail = ctx.createBufferSource();
+          tail.buffer = createNoise(ctx, 0.15 * decayMul);
+          const tf = ctx.createBiquadFilter();
+          tf.type = 'bandpass'; tf.frequency.value = 2500;
+          const tg = ctx.createGain();
+          tg.gain.setValueAtTime(vol * 0.5, t + 0.04);
+          tg.gain.exponentialRampToValueAtTime(0.001, t + 0.15 * decayMul);
+          tail.connect(tf).connect(tg).connect(out);
+          tail.start(t + 0.04);
+          break;
+        }
+        case 'rimshot': case 'sideStick': case 'crossStick': {
+          const freqMap = { rimshot: 800, sideStick: 1000, crossStick: 1200 };
+          const osc = ctx.createOscillator();
+          osc.type = 'square';
+          osc.frequency.value = freqMap[type] * pitchMul;
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(vol * 0.4, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.05 * decayMul);
+          osc.connect(g).connect(out);
+          osc.start(t); osc.stop(t + 0.06 * decayMul);
+          break;
+        }
+        case 'cowbell': {
+          [560, 845].forEach(freq => {
+            const osc = ctx.createOscillator();
+            osc.type = 'square';
+            osc.frequency.value = freq * pitchMul;
+            const g = ctx.createGain();
+            g.gain.setValueAtTime(vol * 0.35, t);
+            g.gain.exponentialRampToValueAtTime(0.001, t + 0.15 * decayMul);
+            const bp = ctx.createBiquadFilter();
+            bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = 3;
+            osc.connect(bp).connect(g).connect(out);
+            osc.start(t); osc.stop(t + 0.2 * decayMul);
+          });
+          break;
+        }
+        case 'crash': case 'ride': case 'splash': case 'china': {
+          const durs = { crash: 0.8, ride: 0.5, splash: 0.3, china: 0.6 };
+          const freqs = { crash: 5000, ride: 6000, splash: 8000, china: 4000 };
+          const noise = ctx.createBufferSource();
+          noise.buffer = createNoise(ctx, durs[type] * decayMul);
+          const bp = ctx.createBiquadFilter();
+          bp.type = 'bandpass'; bp.frequency.value = freqs[type]; bp.Q.value = 1;
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(vol * 0.45, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + durs[type] * decayMul);
+          noise.connect(bp).connect(g).connect(out);
+          noise.start(t);
+          break;
+        }
+        case 'clave': {
+          const osc = ctx.createOscillator();
+          osc.type = 'sine';
+          osc.frequency.value = 2500 * pitchMul;
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(vol * 0.4, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.03 * decayMul);
+          osc.connect(g).connect(out);
+          osc.start(t); osc.stop(t + 0.04 * decayMul);
+          break;
+        }
+        case 'congaLow': case 'congaHigh': {
+          const bf = type === 'congaHigh' ? 350 : 200;
+          const osc = ctx.createOscillator();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(bf * 2 * pitchMul, t);
+          osc.frequency.exponentialRampToValueAtTime(bf * pitchMul, t + 0.03);
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(vol * 0.6, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.2 * decayMul);
+          osc.connect(g).connect(out);
+          osc.start(t); osc.stop(t + 0.25 * decayMul);
+          break;
+        }
+        case 'shaker': case 'tambourine': {
+          const dur = type === 'tambourine' ? 0.12 : 0.06;
+          const noise = ctx.createBufferSource();
+          noise.buffer = createNoise(ctx, dur * decayMul);
+          const f = ctx.createBiquadFilter();
+          f.type = 'highpass'; f.frequency.value = 9000;
+          const g = ctx.createGain();
+          g.gain.setValueAtTime(vol * 0.35, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + dur * decayMul);
+          noise.connect(f).connect(g).connect(out);
+          noise.start(t);
+          break;
+        }
+      }
     }
 
     let globalKerning = 0;
@@ -210,22 +637,22 @@
     });
 
     const DPR = window.devicePixelRatio || 1;
-    const FONT_SIZE = 260;
-    const PADDING = 80;
-    const ON_CURVE_RADIUS = 3.5;
-    const OFF_CURVE_RADIUS = 2.5;
-    const LABEL_MARGIN = 60;
-    const LINE_GAP = 20;
+    const FONT_SIZE = isMobile ? 120 : 260;
+    const PADDING = isMobile ? 30 : 80;
+    const ON_CURVE_RADIUS = isMobile ? 2.5 : 3.5;
+    const OFF_CURVE_RADIUS = isMobile ? 1.8 : 2.5;
+    const LABEL_MARGIN = isMobile ? 0 : 60;
+    const LINE_GAP = isMobile ? 12 : 20;
 
     let font = null;
     let cursorLine = 0;
-    let cursorCol = 5;
+    let cursorCol = isMobile ? 0 : 5;
     let cursorVisible = true;
     let blinkTimer = null;
     let animFrameId = null;
 
     let charIdCounter = 0;
-    let textData = [
+    let textData = isMobile ? [[]] : [
       'Inter'.split('').map(c => ({ char: c, id: charIdCounter++, done: true, kerning: 0, fontSize: FONT_SIZE }))
     ];
 
@@ -307,9 +734,15 @@
         }
       }
       resetBlink();
-      draw();
-      canvas.focus();
+      if (isMobile) {
+        if (typeof mobileRedraw === 'function') mobileRedraw();
+      } else {
+        draw();
+        canvas.focus();
+      }
     }
+
+    let mobileRedraw = null;
 
     function getCursorX(lineIndex, col) {
       const lineChars = textData[lineIndex] || [];
@@ -576,7 +1009,7 @@
       const maxDesc = font.descender * maxScale;
       const maxLineH = maxAsc - maxDesc;
 
-      const minWidth = 400;
+      const minWidth = isMobile ? Math.min(window.innerWidth, 400) : 400;
       const canvasW = Math.max(maxAdvance + PADDING * 2 + LABEL_MARGIN, minWidth);
       const canvasH = textLines.length * Math.max(lineHeight, maxLineH) + (textLines.length - 1) * LINE_GAP + PADDING * 2;
 
@@ -600,7 +1033,7 @@
         const xHeightY = baseline - xHeight;
         const descenderY = baseline - descender;
 
-        drawMetricLines(canvasW, baseline, ascenderY, xHeightY, descenderY, li === 0, fg);
+        drawMetricLines(canvasW, baseline, ascenderY, xHeightY, descenderY, li === 0 && !isMobile, fg);
 
         for (let gi = 0; gi < glyphs.length; gi++) {
           const glyph = glyphs[gi];
@@ -784,6 +1217,7 @@
           const target = textData[cursorLine][cursorCol - 1];
           if (target && !target.deleting) {
             triggerFlash();
+            pronounceChar(target.char, true);
             startDeleteAnimation(target);
             cursorCol--;
           }
@@ -802,6 +1236,7 @@
           const target = textData[cursorLine][cursorCol];
           if (target && !target.deleting) {
             triggerFlash();
+            pronounceChar(target.char, true);
             startDeleteAnimation(target);
           }
         } else if (cursorLine < textData.length - 1) {
@@ -862,13 +1297,11 @@
       }
     });
 
-    canvas.addEventListener('click', (e) => {
-      canvas.focus();
+    function handlePointerAt(clientX, clientY) {
       if (!font) return;
-
       const rect = canvas.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const clickY = e.clientY - rect.top;
+      const clickX = clientX - rect.left;
+      const clickY = clientY - rect.top;
 
       const scale = FONT_SIZE / font.unitsPerEm;
       const ascender = font.ascender * scale;
@@ -895,10 +1328,438 @@
       cursorCol = bestCol;
       clearSelection();
       resetBlink(); scheduleFrame();
+    }
+
+    canvas.addEventListener('click', (e) => {
+      if (isMobile) {
+        hiddenInput.focus();
+      } else {
+        canvas.focus();
+      }
+      handlePointerAt(e.clientX, e.clientY);
     });
 
-    window.addEventListener('resize', () => scheduleFrame());
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      hiddenInput.focus();
+      const t = e.touches[0];
+      handlePointerAt(t.clientX, t.clientY);
+    }, { passive: false });
+
+    function insertChar(key) {
+      if (selectAll) {
+        deleteAll();
+      }
+      clearSelection();
+      const newChar = { char: key, id: charIdCounter++, done: false, kerning: 0, fontSize: FONT_SIZE };
+      textData[cursorLine].splice(cursorCol, 0, newChar);
+      cursorCol++;
+      triggerFlash();
+      pronounceChar(key);
+      startAnimation(newChar);
+      resetBlink();
+    }
+
+    function doBackspace() {
+      if (selectAll) {
+        deleteAll();
+        resetBlink();
+        scheduleFrame();
+        return;
+      }
+      clearSelection();
+      if (cursorCol > 0) {
+        const target = textData[cursorLine][cursorCol - 1];
+        if (target && !target.deleting) {
+          triggerFlash();
+          pronounceChar(target.char, true);
+          startDeleteAnimation(target);
+          cursorCol--;
+        }
+      } else if (cursorLine > 0) {
+        const prevLen = textData[cursorLine - 1].length;
+        textData[cursorLine - 1] = textData[cursorLine - 1].concat(textData[cursorLine]);
+        textData.splice(cursorLine, 1);
+        cursorLine--;
+        cursorCol = prevLen;
+      }
+      resetBlink();
+      scheduleFrame();
+    }
+
+    hiddenInput.addEventListener('input', (e) => {
+      const val = hiddenInput.value;
+      if (val.length > 0) {
+        for (const ch of val) {
+          insertChar(ch);
+        }
+      }
+      hiddenInput.value = '';
+    });
+
+    hiddenInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        doBackspace();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (selectAll) { deleteAll(); }
+        clearSelection();
+        const rest = textData[cursorLine].splice(cursorCol);
+        textData.splice(cursorLine + 1, 0, rest);
+        cursorLine++;
+        cursorCol = 0;
+        resetBlink();
+        scheduleFrame();
+      }
+    });
+
+    if (isMobile) {
+      setupMobileUI();
+    }
+
+    window.addEventListener('resize', () => {
+      scheduleFrame();
+      if (isMobile && typeof mobileRedraw === 'function') mobileRedraw();
+    });
     loadFont();
+
+    /* ===== Mobile Patatap-style UI ===== */
+    function setupMobileUI() {
+      document.getElementById('mobileUI').classList.add('visible');
+      document.getElementById('controls').style.display = 'none';
+      canvas.style.display = 'none';
+      hiddenInput.style.display = 'none';
+
+      const mCanvas = document.getElementById('mobileCanvas');
+      const mCtx = mCanvas.getContext('2d');
+      const grid = document.getElementById('letterGrid');
+
+      const ROWS = [
+        ['1','2','3','4','5','6','7','8','9','0'],
+        ['Q','W','E','R','T','Y','U','I','O','P'],
+        ['A','S','D','F','G','H','J','K','L'],
+        ['⌫','Z','X','C','V','B','N','M','⌦'],
+        ['!','?',',','␣','.','-','⏎'],
+      ];
+
+      ROWS.forEach((row, ri) => {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'kb-row';
+        row.forEach(item => {
+          const cell = document.createElement('div');
+          cell.className = 'grid-cell';
+          cell.textContent = item;
+          cell.dataset.key = item;
+          if (item === '⌫' || item === '⏎' || item === '⌦') {
+            cell.classList.add('fn');
+            cell.classList.add('wide');
+          }
+          if (item === '␣') {
+            cell.classList.add('space');
+            cell.textContent = 'space';
+          }
+          rowDiv.appendChild(cell);
+        });
+        grid.appendChild(rowDiv);
+      });
+
+      const mFontSize = Math.min(window.innerWidth * 0.28, 120);
+      const mPadding = 16;
+      const mDPR = window.devicePixelRatio || 1;
+
+      let mTextData = [[]];
+      let mCursorCol = 0;
+      let mCharId = 0;
+      const mAnimations = new Map();
+      let mAnimFrame = null;
+      let mShowFill = false;
+      let mSpeedLevel = 0;
+      const mSpeeds = [30, 60, 100];
+      const mSpeedLabels = ['SLOW', 'MED', 'FAST'];
+
+      function mSchedule() {
+        if (!mAnimFrame) mAnimFrame = requestAnimationFrame(mRender);
+      }
+
+      function mRender() {
+        mAnimFrame = null;
+        drawMobileInner();
+        let active = false;
+        for (const [id, a] of mAnimations) {
+          if (a.direction === -1 || a.progress < 1) { active = true; break; }
+        }
+        if (!active && fadeEnabled) {
+          const now = performance.now();
+          for (const c of mTextData[0]) {
+            if (c.doneTime && (now - c.doneTime) < FADE_DURATION) { active = true; break; }
+          }
+        }
+        if (active) mAnimFrame = requestAnimationFrame(mRender);
+      }
+
+      mobileRedraw = drawMobileInner;
+      function drawMobileInner() {
+        if (!font) return;
+
+        const vw = window.innerWidth;
+        const canvasH = mFontSize * 1.5 + mPadding * 2;
+        mCanvas.width = vw * mDPR;
+        mCanvas.height = canvasH * mDPR;
+        mCanvas.style.width = vw + 'px';
+        mCanvas.style.height = canvasH + 'px';
+        mCtx.setTransform(mDPR, 0, 0, mDPR, 0, 0);
+
+        mCtx.fillStyle = '#000';
+        mCtx.fillRect(0, 0, vw, canvasH);
+
+        const now = performance.now();
+        const speed = mSpeeds[mSpeedLevel];
+        const cmdPerSec = speed * 1.5;
+
+        const toRemove = [];
+        for (const [id, a] of mAnimations) {
+          const elapsed = (now - a.startTime) / 1000;
+          const total = a.totalCmds || 20;
+          const raw = (elapsed * cmdPerSec) / total;
+          if (a.direction === -1) {
+            a.progress = Math.max(0, 1 - raw);
+            if (a.progress <= 0) toRemove.push(id);
+          } else {
+            if (a.progress < 1) {
+              a.progress = Math.min(1, raw);
+              if (a.progress >= 1) {
+                for (const c of mTextData[0]) {
+                  if (c.id === id) { c.done = true; if (!c.doneTime) c.doneTime = now; }
+                }
+              }
+            }
+          }
+        }
+        for (const id of toRemove) {
+          mAnimations.delete(id);
+          const idx = mTextData[0].findIndex(c => c.id === id);
+          if (idx !== -1) {
+            mTextData[0].splice(idx, 1);
+            if (mCursorCol > idx) mCursorCol = Math.max(0, mCursorCol - 1);
+          }
+        }
+
+        const lineChars = mTextData[0];
+        const text = lineChars.map(c => c.char).join('');
+        const glyphs = font.stringToGlyphs(text);
+
+        let totalW = 0;
+        for (let i = 0; i < glyphs.length; i++) {
+          const cfs = lineChars[i] ? mFontSize : mFontSize;
+          totalW += glyphs[i].advanceWidth * (cfs / font.unitsPerEm);
+        }
+
+        const scale = mFontSize / font.unitsPerEm;
+        const asc = font.ascender * scale;
+        const baseline = mPadding + asc;
+        let x = Math.max(mPadding, (vw - totalW) / 2);
+
+        for (let gi = 0; gi < glyphs.length; gi++) {
+          const glyph = glyphs[gi];
+          const charObj = lineChars[gi];
+          let progress = 1;
+          if (charObj && !charObj.done) {
+            const a = mAnimations.get(charObj.id);
+            if (a) progress = a.progress;
+          }
+          const isDeleting = charObj && charObj.deleting;
+          let fadeT = 1;
+          if (fadeEnabled && charObj && charObj.doneTime && !isDeleting) {
+            fadeT = Math.min(1, (now - charObj.doneTime) / FADE_DURATION);
+          }
+
+          const fs = mFontSize;
+          const path = glyph.getPath(x, baseline, fs);
+          const cmds = path.commands;
+          const vis = Math.ceil(progress * cmds.length);
+
+          mCtx.beginPath();
+          for (let i = 0; i < vis; i++) {
+            const cmd = cmds[i];
+            switch (cmd.type) {
+              case 'M': mCtx.moveTo(cmd.x, cmd.y); break;
+              case 'L': mCtx.lineTo(cmd.x, cmd.y); break;
+              case 'Q': mCtx.quadraticCurveTo(cmd.x1, cmd.y1, cmd.x, cmd.y); break;
+              case 'C': mCtx.bezierCurveTo(cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.x, cmd.y); break;
+              case 'Z': mCtx.closePath(); break;
+            }
+          }
+
+          if (isDeleting && progress < 1) {
+            mCtx.fillStyle = 'rgba(255, 255, 0, 1)';
+            mCtx.fill();
+          } else if (progress < 1) {
+            mCtx.fillStyle = 'rgba(255, 0, 0, 1)';
+            mCtx.fill();
+          } else if (fadeT < 1) {
+            if (fadeT < 0.5) {
+              const t = fadeT / 0.5;
+              mCtx.fillStyle = 'rgb(255,' + Math.round(t*255) + ',' + Math.round(t*255) + ')';
+            } else {
+              mCtx.fillStyle = 'rgba(255,255,255,' + (1 - (fadeT-0.5)/0.5) + ')';
+            }
+            mCtx.fill();
+          } else if (mShowFill) {
+            mCtx.fillStyle = 'rgba(255,255,255,0.85)';
+            mCtx.fill();
+          }
+          mCtx.strokeStyle = 'rgba(255,255,255,0.85)';
+          mCtx.lineWidth = 1;
+          mCtx.stroke();
+
+          const points = [];
+          let vi = 0;
+          for (let i = 0; i < vis; i++) {
+            const cmd = cmds[i];
+            if (cmd.type === 'Z') continue;
+            if (cmd.x1 !== undefined) points.push({ x: cmd.x1, y: cmd.y1, on: false });
+            if (cmd.x2 !== undefined) points.push({ x: cmd.x2, y: cmd.y2, on: false });
+            if (cmd.x !== undefined) points.push({ x: cmd.x, y: cmd.y, on: true });
+          }
+          for (const pt of points) {
+            mCtx.beginPath();
+            mCtx.arc(pt.x, pt.y, pt.on ? 2 : 1.5, 0, Math.PI * 2);
+            if (pt.on) { mCtx.fillStyle = 'rgba(255,255,255,0.8)'; mCtx.fill(); }
+            else { mCtx.strokeStyle = 'rgba(255,255,255,0.4)'; mCtx.lineWidth = 0.8; mCtx.stroke(); }
+          }
+
+          x += glyph.advanceWidth * (fs / font.unitsPerEm);
+        }
+      }
+
+      function mInsert(key) {
+        if (!font) return;
+        const ch = key.toLowerCase();
+        const newChar = { char: ch, id: mCharId++, done: false, kerning: 0, fontSize: mFontSize };
+        mTextData[0].splice(mCursorCol, 0, newChar);
+        mCursorCol++;
+        pronounceChar(ch);
+
+        const g = font.stringToGlyphs(ch)[0];
+        const path = g ? g.getPath(0, 0, mFontSize) : { commands: [] };
+        mAnimations.set(newChar.id, {
+          progress: 0,
+          startTime: performance.now(),
+          totalCmds: path.commands.length || 1,
+          direction: 1
+        });
+        mSchedule();
+      }
+
+      function mBackspace() {
+        if (mCursorCol <= 0) return;
+        const target = mTextData[0][mCursorCol - 1];
+        if (!target || target.deleting) return;
+        pronounceChar(target.char, true);
+        target.done = false;
+        target.deleting = true;
+        const g = font.stringToGlyphs(target.char)[0];
+        const path = g ? g.getPath(0, 0, mFontSize) : { commands: [] };
+        mAnimations.set(target.id, {
+          progress: 1,
+          startTime: performance.now(),
+          totalCmds: path.commands.length || 1,
+          direction: -1
+        });
+        mCursorCol--;
+        mSchedule();
+      }
+
+      function mDelete() {
+        if (mCursorCol >= mTextData[0].length) return;
+        const target = mTextData[0][mCursorCol];
+        if (!target || target.deleting) return;
+        pronounceChar(target.char, true);
+        target.done = false;
+        target.deleting = true;
+        const g = font.stringToGlyphs(target.char)[0];
+        const path = g ? g.getPath(0, 0, mFontSize) : { commands: [] };
+        mAnimations.set(target.id, {
+          progress: 1,
+          startTime: performance.now(),
+          totalCmds: path.commands.length || 1,
+          direction: -1
+        });
+        mSchedule();
+      }
+
+      function mClearAll() {
+        mTextData = [[]];
+        mCursorCol = 0;
+        mAnimations.clear();
+        mSchedule();
+      }
+
+      function flashCell(cell) {
+        cell.classList.add('flash');
+        setTimeout(() => cell.classList.remove('flash'), 150);
+      }
+
+      let speechUnlocked = false;
+      function unlockSpeech() {
+        if (speechUnlocked) return;
+        try {
+          const u = new SpeechSynthesisUtterance('');
+          u.volume = 0;
+          speechSynthesis.speak(u);
+          const ac = getDrumCtx();
+          const b = ac.createBuffer(1, 1, ac.sampleRate);
+          const s = ac.createBufferSource();
+          s.buffer = b;
+          s.connect(ac.destination);
+          s.start();
+        } catch(err) {}
+        speechUnlocked = true;
+      }
+
+      grid.addEventListener('touchstart', (e) => {
+        for (const touch of e.changedTouches) {
+          const el = document.elementFromPoint(touch.clientX, touch.clientY);
+          if (el && el.classList.contains('grid-cell')) flashCell(el);
+        }
+      }, { passive: true });
+
+      grid.addEventListener('click', (e) => {
+        unlockSpeech();
+        const el = e.target.closest('.grid-cell');
+        if (!el) return;
+        const key = el.dataset.key;
+        if (key === '⌫') { mBackspace(); }
+        else if (key === '⌦') { mDelete(); }
+        else if (key === '␣') { mInsert(' '); }
+        else if (key === '⏎') {}
+        else if (key === ' ') {}
+        else { mInsert(key); }
+      });
+
+      document.getElementById('mClear').addEventListener('click', mClearAll);
+      document.getElementById('mSound').addEventListener('click', () => {
+        soundMode = (soundMode + 1) % SOUND_MODES.length;
+        soundEnabled = soundMode > 0;
+        const btn = document.getElementById('mSound');
+        btn.textContent = 'SOUND: ' + SOUND_MODES[soundMode];
+        btn.classList.toggle('active', soundEnabled);
+      });
+      document.getElementById('mFill').addEventListener('click', () => {
+        mShowFill = !mShowFill;
+        const btn = document.getElementById('mFill');
+        btn.textContent = mShowFill ? 'FILL: ON' : 'FILL: OFF';
+        btn.classList.toggle('active', mShowFill);
+        mSchedule();
+      });
+      document.getElementById('mSpeed').addEventListener('click', () => {
+        mSpeedLevel = (mSpeedLevel + 1) % mSpeeds.length;
+        document.getElementById('mSpeed').textContent = 'SPEED: ' + mSpeedLabels[mSpeedLevel];
+        mSchedule();
+      });
+
+    }
   </script>
 </body>
 </html>
