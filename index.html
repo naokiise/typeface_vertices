@@ -598,6 +598,10 @@
       soundToggle.classList.toggle('active', soundEnabled);
       const hint = document.getElementById('sound-hint');
       if (hint) hint.classList.remove('show');
+      if (soundEnabled) {
+        const ctx = getDrumCtx();
+        if (ctx.state === 'suspended') ctx.resume();
+      }
       canvas.focus();
     });
 
@@ -786,17 +790,18 @@
     function playDrum(ch, reverse, sf) {
       sf = sf || 1;
       const ctx = getDrumCtx();
-      if (ctx.state === 'suspended' || ctx.state !== 'running') {
+      if (ctx.state === 'suspended') {
         ctx.resume().then(() => playDrumNow(ctx, ch, reverse, sf)).catch(() => {});
-        return;
+      } else {
+        playDrumNow(ctx, ch, reverse, sf);
       }
-      playDrumNow(ctx, ch, reverse, sf);
     }
 
-    ['click', 'keydown', 'touchstart'].forEach(evt => {
-      document.addEventListener(evt, () => {
-        if (drumCtx && drumCtx.state === 'suspended') drumCtx.resume();
-      }, { once: false, passive: true });
+    function ensureAudioResumed() {
+      if (drumCtx && drumCtx.state === 'suspended') drumCtx.resume();
+    }
+    ['click', 'keydown', 'touchstart', 'pointerdown'].forEach(evt => {
+      document.addEventListener(evt, ensureAudioResumed, { passive: true });
     });
 
     function playDrumNow(ctx, ch, reverse, sf) {
@@ -2724,6 +2729,10 @@
         btn.textContent = 'SOUND: ' + SOUND_MODES[soundMode];
         btn.classList.toggle('active', soundEnabled);
         btn.classList.remove('blink');
+        if (soundEnabled) {
+          const ctx = getDrumCtx();
+          if (ctx.state === 'suspended') ctx.resume();
+        }
       });
       document.getElementById('mFill').addEventListener('click', () => {
         mShowFill = !mShowFill;
