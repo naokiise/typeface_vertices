@@ -372,6 +372,45 @@
       font-size: 10px;
       color: var(--fg-50);
     }
+    @keyframes mSoundBlink {
+      0%, 100% { color: #e53935; }
+      50% { color: var(--fg-50); }
+    }
+    #mSound.blink {
+      animation: mSoundBlink 1s ease-in-out infinite;
+    }
+    #sound-hint {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--fg);
+      color: var(--bg);
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 8px 14px;
+      border-radius: 4px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s;
+      z-index: 200;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    #sound-hint::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: var(--fg);
+    }
+    #sound-hint.show { opacity: 1; pointer-events: auto; }
+    #sound-hint svg { flex-shrink: 0; }
   </style>
 </head>
 <body>
@@ -416,7 +455,13 @@
     </div>
     <button id="fillToggle">Fill: OFF</button>
     <button id="fadeToggle" class="active">Fade: ON</button>
-    <button id="soundToggle">Sound: OFF</button>
+    <span style="position:relative;display:inline-block;">
+      <button id="soundToggle">Sound: OFF</button>
+      <div id="sound-hint">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+        try hear the sound of typing
+      </div>
+    </span>
   </div>
 
   <div id="mobileUI">
@@ -507,9 +552,9 @@
 
     let showFill = false;
     let kerningEnabled = true;
-    let sizeEnabled = true;
+    let sizeEnabled = false;
     let fadeEnabled = true;
-    const SOUND_MODES = ['OFF', 'VOICE', 'DRUMS'];
+    const SOUND_MODES = ['OFF', 'ON'];
     let soundMode = 0;
     let soundEnabled = false;
     const FADE_DURATION = 3000;
@@ -551,8 +596,9 @@
       soundEnabled = soundMode > 0;
       soundToggle.textContent = 'Sound: ' + SOUND_MODES[soundMode];
       soundToggle.classList.toggle('active', soundEnabled);
+      const hint = document.getElementById('sound-hint');
+      if (hint) hint.classList.remove('show');
       canvas.focus();
-      resetAutoplayTimer();
     });
 
     const phonetics = {
@@ -591,27 +637,8 @@
     function pronounceChar(ch, reverse) {
       if (!soundEnabled) return;
       const sf = getSpeedFactor();
-      if (soundMode === 2) {
-        playDrum(ch.toLowerCase(), reverse, sf);
-        scheduleFrame();
-        return;
-      }
-      triggerVoiceImpulse();
+      playDrum(ch.toLowerCase(), reverse, sf);
       scheduleFrame();
-      const key = ch.toLowerCase();
-      const text = reverse
-        ? (reversePhonetics[key] || key.split('').reverse().join(''))
-        : (phonetics[key] || ch);
-      const baseRate = reverse ? 0.7 : 1.1;
-      const rate = Math.max(0.1, Math.min(10, baseRate * sf));
-      const pitch = reverse ? 0.5 : 1.0;
-      const utt = new SpeechSynthesisUtterance(text);
-      utt.lang = 'en-US';
-      utt.rate = rate;
-      utt.pitch = pitch;
-      utt.volume = 1.0;
-      currentUtterance = utt;
-      speechSynthesis.speak(utt);
     }
 
     setInterval(() => {
@@ -737,23 +764,40 @@
       '?': 'splash',     '-': 'rimshot',
     };
 
+    const noiseCache = new Map();
     function createNoise(ctx, duration) {
+      const key = Math.round(duration * 1000);
+      if (noiseCache.has(key)) return noiseCache.get(key);
       const len = ctx.sampleRate * duration;
       const buf = ctx.createBuffer(1, len, ctx.sampleRate);
       const data = buf.getChannelData(0);
       for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      if (noiseCache.size < 50) noiseCache.set(key, buf);
       return buf;
+    }
+
+    function autoCleanup(sourceNode, ...nodes) {
+      sourceNode.onended = () => {
+        nodes.forEach(n => { try { n.disconnect(); } catch(e) {} });
+        try { sourceNode.disconnect(); } catch(e) {}
+      };
     }
 
     function playDrum(ch, reverse, sf) {
       sf = sf || 1;
       const ctx = getDrumCtx();
-      if (ctx.state !== 'running') {
-        ctx.resume().then(() => playDrumNow(ctx, ch, reverse, sf));
+      if (ctx.state === 'suspended' || ctx.state !== 'running') {
+        ctx.resume().then(() => playDrumNow(ctx, ch, reverse, sf)).catch(() => {});
         return;
       }
       playDrumNow(ctx, ch, reverse, sf);
     }
+
+    ['click', 'keydown', 'touchstart'].forEach(evt => {
+      document.addEventListener(evt, () => {
+        if (drumCtx && drumCtx.state === 'suspended') drumCtx.resume();
+      }, { once: false, passive: true });
+    });
 
     function playDrumNow(ctx, ch, reverse, sf) {
       sf = sf || 1;
@@ -775,6 +819,7 @@
           g.gain.exponentialRampToValueAtTime(0.001, t + 0.4 * decayMul);
           osc.connect(g).connect(out);
           osc.start(t); osc.stop(t + 0.5 * decayMul);
+          autoCleanup(osc, g);
           break;
         }
         case 'snare': case 'snare2': case 'snareTight': {
@@ -787,7 +832,8 @@
           ng.gain.setValueAtTime(vol * 0.8, t);
           ng.gain.exponentialRampToValueAtTime(0.001, t + 0.15 * decayMul);
           noise.connect(nf).connect(ng).connect(out);
-          noise.start(t);
+          noise.start(t); noise.stop(t + 0.2 * decayMul);
+          autoCleanup(noise, nf, ng);
           const osc = ctx.createOscillator();
           osc.type = 'triangle';
           osc.frequency.setValueAtTime((type === 'snare2' ? 200 : 180) * pitchMul, t);
@@ -796,6 +842,7 @@
           og.gain.exponentialRampToValueAtTime(0.001, t + 0.08 * decayMul);
           osc.connect(og).connect(out);
           osc.start(t); osc.stop(t + 0.2 * decayMul);
+          autoCleanup(osc, og);
           break;
         }
         case 'hihatClosed': case 'hihatOpen': {
@@ -809,7 +856,8 @@
           g.gain.setValueAtTime(vol * 0.5, t);
           g.gain.exponentialRampToValueAtTime(0.001, t + dur * decayMul);
           noise.connect(f).connect(g).connect(out);
-          noise.start(t);
+          noise.start(t); noise.stop(t + dur * decayMul + 0.05);
+          autoCleanup(noise, f, g);
           break;
         }
         case 'tomHigh': case 'tomMid': case 'tomLow': case 'tomFloor': {
@@ -824,6 +872,7 @@
           g.gain.exponentialRampToValueAtTime(0.001, t + 0.25 * decayMul);
           osc.connect(g).connect(out);
           osc.start(t); osc.stop(t + 0.3 * decayMul);
+          autoCleanup(osc, g);
           break;
         }
         case 'clap': {
@@ -836,7 +885,8 @@
             g.gain.setValueAtTime(vol * 0.6, t + i * 0.015);
             g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.015 + 0.03);
             n.connect(f).connect(g).connect(out);
-            n.start(t + i * 0.015);
+            n.start(t + i * 0.015); n.stop(t + i * 0.015 + 0.05);
+            autoCleanup(n, f, g);
           }
           const tail = ctx.createBufferSource();
           tail.buffer = createNoise(ctx, 0.15 * decayMul);
@@ -846,7 +896,8 @@
           tg.gain.setValueAtTime(vol * 0.5, t + 0.04);
           tg.gain.exponentialRampToValueAtTime(0.001, t + 0.15 * decayMul);
           tail.connect(tf).connect(tg).connect(out);
-          tail.start(t + 0.04);
+          tail.start(t + 0.04); tail.stop(t + 0.2 * decayMul);
+          autoCleanup(tail, tf, tg);
           break;
         }
         case 'rimshot': case 'sideStick': case 'crossStick': {
@@ -859,6 +910,7 @@
           g.gain.exponentialRampToValueAtTime(0.001, t + 0.05 * decayMul);
           osc.connect(g).connect(out);
           osc.start(t); osc.stop(t + 0.06 * decayMul);
+          autoCleanup(osc, g);
           break;
         }
         case 'cowbell': {
@@ -873,6 +925,7 @@
             bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = 3;
             osc.connect(bp).connect(g).connect(out);
             osc.start(t); osc.stop(t + 0.2 * decayMul);
+            autoCleanup(osc, bp, g);
           });
           break;
         }
@@ -887,7 +940,8 @@
           g.gain.setValueAtTime(vol * 0.45, t);
           g.gain.exponentialRampToValueAtTime(0.001, t + durs[type] * decayMul);
           noise.connect(bp).connect(g).connect(out);
-          noise.start(t);
+          noise.start(t); noise.stop(t + durs[type] * decayMul + 0.05);
+          autoCleanup(noise, bp, g);
           break;
         }
         case 'clave': {
@@ -899,6 +953,7 @@
           g.gain.exponentialRampToValueAtTime(0.001, t + 0.03 * decayMul);
           osc.connect(g).connect(out);
           osc.start(t); osc.stop(t + 0.04 * decayMul);
+          autoCleanup(osc, g);
           break;
         }
         case 'congaLow': case 'congaHigh': {
@@ -912,6 +967,7 @@
           g.gain.exponentialRampToValueAtTime(0.001, t + 0.2 * decayMul);
           osc.connect(g).connect(out);
           osc.start(t); osc.stop(t + 0.25 * decayMul);
+          autoCleanup(osc, g);
           break;
         }
         case 'shaker': case 'tambourine': {
@@ -924,7 +980,8 @@
           g.gain.setValueAtTime(vol * 0.35, t);
           g.gain.exponentialRampToValueAtTime(0.001, t + dur * decayMul);
           noise.connect(f).connect(g).connect(out);
-          noise.start(t);
+          noise.start(t); noise.stop(t + dur * decayMul + 0.05);
+          autoCleanup(noise, f, g);
           break;
         }
       }
@@ -1031,9 +1088,6 @@
       if (!hasActive && (audioEnergy > 0.01 || audioEnergyTarget > 0.01)) {
         hasActive = true;
       }
-      if (!hasActive && autoplayActive) {
-        hasActive = true;
-      }
       if (!hasActive && dMsgActive) {
         hasActive = true;
       }
@@ -1065,7 +1119,6 @@
         canvas.focus();
         if (dMsgActive) dMsgTypeNext();
       }
-      resetAutoplayTimer();
     }
 
     let mobileRedraw = null;
@@ -1073,7 +1126,7 @@
     let mMsgStart = null;
     let mMsgActive = false;
 
-    const dMsgs = ['welcome', 'type your message', 'sound on if you can'];
+    const dMsgs = ['welcome', 'hear the sound of typography', 'type to make your beat'];
     let dMsgActive = true;
     let dMsgIndex = 0;
     let dMsgCharIdx = 0;
@@ -1088,6 +1141,8 @@
         const newChar = { char: ch, id: charIdCounter++, done: false, kerning: 0, fontSize: FONT_SIZE };
         textData[0].splice(cursorCol, 0, newChar);
         cursorCol++;
+        triggerCharFlash(newChar);
+        pronounceChar(ch);
         startAnimation(newChar);
         scheduleFrame();
         dMsgCharIdx++;
@@ -1105,23 +1160,28 @@
     function dMsgDeleteNext() {
       if (!dMsgActive) return;
       const line = textData[0];
-      if (line && line.length > 0) {
-        const target = line[line.length - 1];
-        if (target && !target.deleting) {
-          cursorCol = Math.max(0, cursorCol - 1);
-          startDeleteAnimation(target);
-          scheduleFrame();
-          dMsgTimer = setTimeout(dMsgDeleteNext, 7);
-        } else {
-          dMsgTimer = setTimeout(dMsgDeleteNext, 3);
-        }
-      } else {
+      if (!line || line.length === 0) {
         dMsgIndex++;
         if (dMsgIndex >= dMsgs.length) dMsgIndex = 0;
         dMsgCharIdx = 0;
         cursorCol = 0;
         scheduleFrame();
         dMsgTimer = setTimeout(dMsgTypeNext, 400);
+        return;
+      }
+      const hasNonDeleting = line.some(c => !c.deleting);
+      if (hasNonDeleting) {
+        const target = line.filter(c => !c.deleting).pop();
+        if (target) {
+          cursorCol = Math.max(0, cursorCol - 1);
+          triggerCharFlash(target);
+          pronounceChar(target.char, true);
+          startDeleteAnimation(target);
+          scheduleFrame();
+        }
+        dMsgTimer = setTimeout(dMsgDeleteNext, 30);
+      } else {
+        dMsgTimer = setTimeout(dMsgDeleteNext, 50);
       }
     }
 
@@ -1157,7 +1217,7 @@
     function getGlyphProgress(charObj) {
       if (charObj.done) return 1;
       const anim = animations.get(charObj.id);
-      if (!anim) return autoplayActive ? 0 : 1;
+      if (!anim) return 1;
       return anim.progress;
     }
 
@@ -1229,29 +1289,36 @@
       const wf = waveIntensity / 50;
       const waveActive = e > 0.005 && waveIntensity > 0;
 
-      let xMin = Infinity, xMax = -Infinity;
+      let cxCenter = 0, cyCenter = 0, maxR = 1;
       if (waveActive) {
+        let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
         for (let i = 0; i < visibleCount; i++) {
           const c = cmds[i];
-          if (c.x !== undefined) { if (c.x < xMin) xMin = c.x; if (c.x > xMax) xMax = c.x; }
-          if (c.x1 !== undefined) { if (c.x1 < xMin) xMin = c.x1; if (c.x1 > xMax) xMax = c.x1; }
-          if (c.x2 !== undefined) { if (c.x2 < xMin) xMin = c.x2; if (c.x2 > xMax) xMax = c.x2; }
+          if (c.x !== undefined) { if (c.x < xMin) xMin = c.x; if (c.x > xMax) xMax = c.x; if (c.y < yMin) yMin = c.y; if (c.y > yMax) yMax = c.y; }
+          if (c.x1 !== undefined) { if (c.x1 < xMin) xMin = c.x1; if (c.x1 > xMax) xMax = c.x1; if (c.y1 < yMin) yMin = c.y1; if (c.y1 > yMax) yMax = c.y1; }
+          if (c.x2 !== undefined) { if (c.x2 < xMin) xMin = c.x2; if (c.x2 > xMax) xMax = c.x2; if (c.y2 < yMin) yMin = c.y2; if (c.y2 > yMax) yMax = c.y2; }
         }
+        cxCenter = (xMin + xMax) / 2;
+        cyCenter = (yMin + yMax) / 2;
+        maxR = Math.max(1, Math.hypot(xMax - xMin, yMax - yMin) / 2);
       }
-      const xRange = Math.max(1, xMax - xMin);
       const SUB = waveActive ? Math.max(2, Math.round(wf * 10)) : 0;
 
       function wave(px, py) {
         if (!waveActive) return { x: px, y: py };
-        const t = Math.max(0, Math.min(1, (px - xMin) / xRange));
+        const dx = px - cxCenter;
+        const dy = py - cyCenter;
+        const dist = Math.hypot(dx, dy);
+        const t = Math.min(1, dist / maxR);
         const binF = t * (WAVE_BINS - 1);
         const lo = Math.floor(binF);
         const hi = Math.min(lo + 1, WAVE_BINS - 1);
         const frac = binF - lo;
         const amp = waveData[lo] * (1 - frac) + waveData[hi] * frac;
-        const phase = t * Math.PI * 4 + now * 0.004;
-        const dy = Math.sin(phase) * amp * fs * 0.07 * wf;
-        return { x: px, y: py + dy };
+        const phase = t * Math.PI * 6 + now * 0.005;
+        const displacement = Math.sin(phase) * amp * fs * 0.06 * wf;
+        const angle = Math.atan2(dy, dx);
+        return { x: px + Math.cos(angle) * displacement, y: py + Math.sin(angle) * displacement };
       }
 
       ctx.beginPath();
@@ -1427,96 +1494,7 @@
       if (charObj) charObj.flashTime = performance.now();
     }
 
-    /* ===== Auto-play sequencer ===== */
-    const AUTOPLAY_DELAY = 2000;
-    let autoplayTimer = null;
-    let autoplaySeqTimer = null;
-    let autoplayIndex = -1;
-    let autoplayLine = 0;
-    let autoplayActive = false;
     let lastDisplayLines = [];
-
-    function collectAutoplayChars() {
-      const chars = [];
-      for (const line of textData) {
-        for (const c of line) {
-          if (!c.deleting) chars.push(c);
-        }
-      }
-      return chars;
-    }
-
-    function resetAutoplayTimer() {
-      stopAutoplay();
-      clearTimeout(autoplayTimer);
-      const allChars = collectAutoplayChars();
-      if (allChars.length > 0) {
-        autoplayTimer = setTimeout(startAutoplay, AUTOPLAY_DELAY);
-      }
-    }
-
-    function startAutoplay() {
-      const chars = collectAutoplayChars();
-      if (chars.length === 0) return;
-      autoplayActive = true;
-      autoplayLine = 0;
-      autoplayIndex = -1;
-      for (const c of chars) {
-        c.done = false;
-        c.doneTime = null;
-        animations.delete(c.id);
-      }
-      scheduleFrame();
-      stepAutoplay();
-    }
-
-    function stopAutoplay() {
-      if (autoplayActive) {
-        const chars = collectAutoplayChars();
-        for (const c of chars) {
-          if (!c.done) {
-            c.done = true;
-            c.doneTime = performance.now();
-          }
-        }
-      }
-      autoplayActive = false;
-      autoplayLine = 0;
-      autoplayIndex = -1;
-      clearTimeout(autoplaySeqTimer);
-      autoplaySeqTimer = null;
-    }
-
-    function stepAutoplay() {
-      if (!autoplayActive) { stopAutoplay(); return; }
-      autoplayIndex++;
-      while (autoplayLine < textData.length) {
-        const line = textData[autoplayLine];
-        while (autoplayIndex < line.length) {
-          const ch = line[autoplayIndex];
-          if (ch && !ch.deleting) {
-            ch.done = false;
-            ch.doneTime = null;
-            startAnimation(ch);
-            pronounceChar(ch.char, false);
-            triggerCharFlash(ch);
-            scheduleFrame();
-            const speed = getSpeed();
-            const glyphs = font.stringToGlyphs(ch.char);
-            const g = glyphs[0];
-            const totalCmds = g ? g.getPath(0, 0, FONT_SIZE).commands.length : 20;
-            const animDuration = (totalCmds / (speed * 1.5)) * 1000;
-            const interval = Math.max(100, animDuration * 0.7);
-            autoplaySeqTimer = setTimeout(stepAutoplay, interval);
-            return;
-          }
-          autoplayIndex++;
-        }
-        autoplayLine++;
-        autoplayIndex = 0;
-      }
-      autoplaySeqTimer = setTimeout(startAutoplay, AUTOPLAY_DELAY);
-    }
 
     function draw() {
       if (!font) return;
@@ -1564,17 +1542,42 @@
         let rowGlyphs = [];
         let rowW = 0;
         let rowStartCol = 0;
+        let lastSpaceIdx = -1;
+        let wAtSpace = 0;
+        let charsAtSpace = 0;
         for (let gi = 0; gi < glyphs.length; gi++) {
           const cfs = (lineChars[gi] && sizeEnabled) ? lineChars[gi].fontSize : FONT_SIZE;
           let charW = glyphs[gi].advanceWidth * (cfs / font.unitsPerEm);
           if (lineChars[gi] && kerningEnabled) charW += lineChars[gi].kerning;
           charW += globalKerning;
+          if (lineChars[gi] && lineChars[gi].char === ' ') {
+            lastSpaceIdx = gi;
+            wAtSpace = rowW + charW;
+            charsAtSpace = rowChars.length + 1;
+          }
           if (rowChars.length > 0 && rowW + charW > wrapWidth) {
-            displayLines.push({ chars: rowChars, glyphs: rowGlyphs, srcLine: li, srcCol: rowStartCol });
-            rowStartCol += rowChars.length;
-            rowChars = [];
-            rowGlyphs = [];
-            rowW = 0;
+            if (lastSpaceIdx >= 0 && lastSpaceIdx >= rowStartCol) {
+              const breakAt = charsAtSpace;
+              displayLines.push({ chars: rowChars.slice(0, breakAt), glyphs: rowGlyphs.slice(0, breakAt), srcLine: li, srcCol: rowStartCol });
+              rowStartCol += breakAt;
+              rowChars = rowChars.slice(breakAt);
+              rowGlyphs = rowGlyphs.slice(breakAt);
+              rowW = 0;
+              for (let k = 0; k < rowGlyphs.length; k++) {
+                const kfs = (rowChars[k] && sizeEnabled) ? rowChars[k].fontSize : FONT_SIZE;
+                rowW += rowGlyphs[k].advanceWidth * (kfs / font.unitsPerEm);
+                if (rowChars[k] && kerningEnabled) rowW += rowChars[k].kerning;
+                rowW += globalKerning;
+              }
+              lastSpaceIdx = -1;
+            } else {
+              displayLines.push({ chars: rowChars, glyphs: rowGlyphs, srcLine: li, srcCol: rowStartCol });
+              rowStartCol += rowChars.length;
+              rowChars = [];
+              rowGlyphs = [];
+              rowW = 0;
+              lastSpaceIdx = -1;
+            }
           }
           rowChars.push(lineChars[gi]);
           rowGlyphs.push(glyphs[gi]);
@@ -1795,7 +1798,6 @@
     canvas.addEventListener('keydown', (e) => {
       if (!font) return;
       if (dMsgActive) dMsgStop();
-      resetAutoplayTimer();
       const key = e.key;
 
       if (key === 'a' && (e.metaKey || e.ctrlKey)) {
@@ -1984,7 +1986,6 @@
 
     function insertChar(key) {
       if (dMsgActive) dMsgStop();
-      resetAutoplayTimer();
       if (selectAll) {
         deleteAll();
       }
@@ -2000,7 +2001,6 @@
 
     function doBackspace() {
       if (dMsgActive) { dMsgStop(); resetBlink(); scheduleFrame(); return; }
-      resetAutoplayTimer();
       if (selectAll) {
         deleteAll();
         resetBlink();
@@ -2064,6 +2064,15 @@
     });
     loadFont();
 
+    setTimeout(() => {
+      const hint = document.getElementById('sound-hint');
+      if (hint) {
+        hint.classList.add('show');
+        setTimeout(() => hint.classList.remove('show'), 4000);
+        hint.addEventListener('click', (e) => { e.stopPropagation(); hint.classList.remove('show'); });
+      }
+    }, 3000);
+
     /* ===== Mobile Patatap-style UI ===== */
     function setupMobileUI() {
       document.getElementById('mobileUI').classList.add('visible');
@@ -2118,7 +2127,7 @@
       const mSpeeds = [30, 60, 100];
       const mSpeedLabels = ['SLOW', 'MED', 'FAST'];
 
-      const mMessages = ['welcome', 'type your message', 'sound on if you can'];
+      const mMessages = ['welcome', 'hear the sound of typography', 'type to make your beat'];
       mMsgActive = true;
       let mMsgIndex = 0;
       let mMsgCharIdx = 0;
@@ -2133,6 +2142,9 @@
           const newChar = { char: ch, id: mCharId++, done: false, kerning: 0, fontSize: mFontSize };
           mTextData[0].splice(mCursorCol, 0, newChar);
           mCursorCol++;
+          mCursorVisible = true;
+          triggerCharFlash(newChar);
+          pronounceChar(ch);
           const g = font.stringToGlyphs(ch)[0];
           const path = g ? g.getPath(0, 0, mFontSize) : { commands: [] };
           mAnimations.set(newChar.id, {
@@ -2157,11 +2169,22 @@
       function mMsgDeleteNext() {
         if (!mMsgActive) return;
         const line = mTextData[0];
-        if (line && line.length > 0) {
-          const target = line[line.length - 1];
-          if (target && !target.deleting) {
+        if (!line || line.length === 0) {
+          mMsgIndex++;
+          if (mMsgIndex >= mMessages.length) mMsgIndex = 0;
+          mMsgCharIdx = 0;
+          mSchedule();
+          mMsgTimer = setTimeout(mMsgTypeNext, 400);
+          return;
+        }
+        const hasNonDeleting = line.some(c => !c.deleting);
+        if (hasNonDeleting) {
+          const target = line.filter(c => !c.deleting).pop();
+          if (target) {
             target.done = false;
             target.deleting = true;
+            triggerCharFlash(target);
+            pronounceChar(target.char, true);
             const g = font.stringToGlyphs(target.char)[0];
             const path = g ? g.getPath(0, 0, mFontSize) : { commands: [] };
             mAnimations.set(target.id, {
@@ -2171,17 +2194,12 @@
               direction: -1
             });
             mCursorCol = Math.max(0, mCursorCol - 1);
+            mCursorVisible = true;
             mSchedule();
-            mMsgTimer = setTimeout(mMsgDeleteNext, 7);
-          } else {
-            mMsgTimer = setTimeout(mMsgDeleteNext, 3);
           }
+          mMsgTimer = setTimeout(mMsgDeleteNext, 30);
         } else {
-          mMsgIndex++;
-          if (mMsgIndex >= mMessages.length) mMsgIndex = 0;
-          mMsgCharIdx = 0;
-          mSchedule();
-          mMsgTimer = setTimeout(mMsgTypeNext, 400);
+          mMsgTimer = setTimeout(mMsgDeleteNext, 50);
         }
       }
 
@@ -2217,10 +2235,15 @@
           }
         }
         if (!active && (audioEnergy > 0.01 || audioEnergyTarget > 0.01)) active = true;
-        if (!active && mAutoplayActive) active = true;
         if (!active && mMsgActive) active = true;
         if (active) mAnimFrame = requestAnimationFrame(mRender);
       }
+
+      let mCursorVisible = true;
+      let mBlinkTimer = setInterval(() => {
+        mCursorVisible = !mCursorVisible;
+        mSchedule();
+      }, 530);
 
       mobileRedraw = drawMobileInner;
       function drawMobileInner() {
@@ -2284,11 +2307,27 @@
           const sc = fontSize / font.unitsPerEm;
           const rows = [];
           let rs = 0, rw = 0;
+          let lastSpace = -1, wAtSpace = 0;
           for (let i = 0; i < glyphs.length; i++) {
             const gw = glyphs[i].advanceWidth * sc;
+            if (lineChars[i] && lineChars[i].char === ' ') {
+              lastSpace = i;
+              wAtSpace = rw + gw;
+            }
             if (rw + gw > maxW && i > rs) {
-              rows.push({ start: rs, end: i, width: rw });
-              rs = i; rw = 0;
+              if (lastSpace > rs) {
+                rows.push({ start: rs, end: lastSpace + 1, width: wAtSpace });
+                rs = lastSpace + 1;
+                rw = 0;
+                for (let j = rs; j <= i; j++) {
+                  rw += glyphs[j].advanceWidth * sc;
+                }
+                lastSpace = -1;
+              } else {
+                rows.push({ start: rs, end: i, width: rw });
+                rs = i; rw = gw;
+              }
+              continue;
             }
             rw += gw;
           }
@@ -2322,7 +2361,6 @@
             if (charObj && !charObj.done) {
               const a = mAnimations.get(charObj.id);
               if (a) progress = a.progress;
-              else if (mAutoplayActive) progress = 0;
             }
             const isDeleting = charObj && charObj.deleting;
             let fadeT = 1;
@@ -2347,27 +2385,35 @@
             const waveOn = e > 0.005 && waveIntensity > 0;
             const SUB = waveOn ? Math.max(2, Math.round(mwf * 10)) : 0;
 
-            let xMn = Infinity, xMx = -Infinity;
+            let mwCx = 0, mwCy = 0, mwMaxR = 1;
             if (waveOn) {
+              let xMn = Infinity, xMx = -Infinity, yMn = Infinity, yMx = -Infinity;
               for (let i = 0; i < vis; i++) {
                 const c = cmds[i];
-                if (c.x !== undefined) { if (c.x < xMn) xMn = c.x; if (c.x > xMx) xMx = c.x; }
-                if (c.x1 !== undefined) { if (c.x1 < xMn) xMn = c.x1; if (c.x1 > xMx) xMx = c.x1; }
-                if (c.x2 !== undefined) { if (c.x2 < xMn) xMn = c.x2; if (c.x2 > xMx) xMx = c.x2; }
+                if (c.x !== undefined) { if (c.x < xMn) xMn = c.x; if (c.x > xMx) xMx = c.x; if (c.y < yMn) yMn = c.y; if (c.y > yMx) yMx = c.y; }
+                if (c.x1 !== undefined) { if (c.x1 < xMn) xMn = c.x1; if (c.x1 > xMx) xMx = c.x1; if (c.y1 < yMn) yMn = c.y1; if (c.y1 > yMx) yMx = c.y1; }
+                if (c.x2 !== undefined) { if (c.x2 < xMn) xMn = c.x2; if (c.x2 > xMx) xMx = c.x2; if (c.y2 < yMn) yMn = c.y2; if (c.y2 > yMx) yMx = c.y2; }
               }
+              mwCx = (xMn + xMx) / 2;
+              mwCy = (yMn + yMx) / 2;
+              mwMaxR = Math.max(1, Math.hypot(xMx - xMn, yMx - yMn) / 2);
             }
-            const xRng = Math.max(1, xMx - xMn);
 
             function mw(px, py) {
               if (!waveOn) return { x: px, y: py };
-              const t = Math.max(0, Math.min(1, (px - xMn) / xRng));
+              const ddx = px - mwCx;
+              const ddy = py - mwCy;
+              const dist = Math.hypot(ddx, ddy);
+              const t = Math.min(1, dist / mwMaxR);
               const binF = t * (WAVE_BINS - 1);
               const lo = Math.floor(binF);
               const hi = Math.min(lo + 1, WAVE_BINS - 1);
               const frac = binF - lo;
               const amp = waveData[lo] * (1 - frac) + waveData[hi] * frac;
-              const phase = t * Math.PI * 4 + now * 0.004;
-              return { x: px, y: py + Math.sin(phase) * amp * fs * 0.07 * mwf };
+              const phase = t * Math.PI * 6 + now * 0.005;
+              const displacement = Math.sin(phase) * amp * fs * 0.06 * mwf;
+              const angle = Math.atan2(ddy, ddx);
+              return { x: px + Math.cos(angle) * displacement, y: py + Math.sin(angle) * displacement };
             }
 
             mCtx.beginPath();
@@ -2480,38 +2526,49 @@
           }
         }
 
-        if (!mMsgActive && mCursorVisible) {
-          let cursorGi = mCursorCol;
-          let curRow = 0;
-          for (let ri = 0; ri < displayRows.length; ri++) {
-            const row = displayRows[ri];
-            if (cursorGi <= row.end - row.start || ri === displayRows.length - 1) {
-              curRow = ri;
-              break;
+        if (mCursorVisible) {
+          const curFs = fs;
+          const curScale = curFs / font.unitsPerEm;
+          const curAsc = font.ascender * curScale;
+          const curDesc = -font.descender * curScale;
+          const curLineH = curAsc + curDesc + 4;
+
+          if (displayRows.length === 0 || (displayRows.length === 1 && displayRows[0].end === 0)) {
+            const cy = canvasH / 2;
+            const cx = vw / 2;
+            mCtx.strokeStyle = 'rgba(' + mFgVal + ',' + mFgVal + ',' + mFgVal + ',0.9)';
+            mCtx.lineWidth = 1.5;
+            mCtx.beginPath();
+            mCtx.moveTo(cx, cy - curAsc * 0.5);
+            mCtx.lineTo(cx, cy + curDesc * 0.5);
+            mCtx.stroke();
+          } else {
+            let cursorGi = mCursorCol;
+            let curRow = 0;
+            for (let ri = 0; ri < displayRows.length; ri++) {
+              const row = displayRows[ri];
+              if (cursorGi <= row.end - row.start || ri === displayRows.length - 1) {
+                curRow = ri;
+                break;
+              }
+              cursorGi -= (row.end - row.start);
             }
-            cursorGi -= (row.end - row.start);
+            const row = displayRows[curRow];
+            const curBaseline = startY + curRow * curLineH + curAsc;
+            let cx = Math.max(mPadding, (vw - row.width) / 2);
+            const end = Math.min(row.start + cursorGi, row.end);
+            for (let gi = row.start; gi < end; gi++) {
+              cx += glyphs[gi].advanceWidth * curScale;
+            }
+            mCtx.strokeStyle = 'rgba(' + mFgVal + ',' + mFgVal + ',' + mFgVal + ',0.9)';
+            mCtx.lineWidth = 1.5;
+            mCtx.beginPath();
+            mCtx.moveTo(cx, curBaseline - curAsc);
+            mCtx.lineTo(cx, curBaseline + curDesc);
+            mCtx.stroke();
           }
-          const row = displayRows[curRow];
-          const curBaseline = startY + curRow * lineH + asc;
-          let cx = Math.max(mPadding, (vw - row.width) / 2);
-          const end = Math.min(row.start + cursorGi, row.end);
-          for (let gi = row.start; gi < end; gi++) {
-            cx += glyphs[gi].advanceWidth * scale;
-          }
-          mCtx.strokeStyle = 'rgba(' + mFgVal + ',' + mFgVal + ',' + mFgVal + ',0.9)';
-          mCtx.lineWidth = 1.5;
-          mCtx.beginPath();
-          mCtx.moveTo(cx, curBaseline - asc);
-          mCtx.lineTo(cx, curBaseline + desc);
-          mCtx.stroke();
         }
       }
-
-      let mCursorVisible = true;
-      let mBlinkTimer = setInterval(() => {
-        mCursorVisible = !mCursorVisible;
-        mSchedule();
-      }, 530);
 
       function mResetBlink() {
         mCursorVisible = true;
@@ -2530,7 +2587,6 @@
           mAnimations.clear();
         }
         mResetBlink();
-        mResetAutoplayTimer();
         if (!font) return;
         const ch = key.toLowerCase();
         const newChar = { char: ch, id: mCharId++, done: false, kerning: 0, fontSize: mFontSize };
@@ -2560,7 +2616,6 @@
           return;
         }
         mResetBlink();
-        mResetAutoplayTimer();
         if (mCursorCol <= 0) return;
         const target = mTextData[0][mCursorCol - 1];
         if (!target || target.deleting) return;
@@ -2581,7 +2636,6 @@
       }
 
       function mDelete() {
-        mResetAutoplayTimer();
         if (mCursorCol >= mTextData[0].length) return;
         const target = mTextData[0][mCursorCol];
         if (!target || target.deleting) return;
@@ -2601,86 +2655,12 @@
       }
 
       function mClearAll() {
-        mStopAutoplay();
         mTextData[0].length = 0;
         mCursorCol = 0;
         mAnimations.clear();
         mSchedule();
       }
 
-      let mAutoplayActive = false;
-      let mAutoplayTimer = null;
-      let mAutoplaySeqTimer = null;
-      let mAutoplayIdx = -1;
-
-      function mResetAutoplayTimer() {
-        mStopAutoplay();
-        clearTimeout(mAutoplayTimer);
-        const chars = mTextData[0].filter(c => !c.deleting);
-        if (chars.length > 0 && soundEnabled) {
-          mAutoplayTimer = setTimeout(mStartAutoplay, AUTOPLAY_DELAY);
-        }
-      }
-
-      function mStartAutoplay() {
-        const chars = mTextData[0].filter(c => !c.deleting);
-        if (chars.length === 0) return;
-        mAutoplayActive = true;
-        mAutoplayIdx = -1;
-        for (const c of chars) {
-          c.done = false;
-          c.doneTime = null;
-          mAnimations.delete(c.id);
-        }
-        mSchedule();
-        mStepAutoplay();
-      }
-
-      function mStopAutoplay() {
-        if (mAutoplayActive) {
-          for (const c of mTextData[0]) {
-            if (!c.deleting && !c.done) {
-              c.done = true;
-              c.doneTime = performance.now();
-            }
-          }
-        }
-        mAutoplayActive = false;
-        mAutoplayIdx = -1;
-        clearTimeout(mAutoplaySeqTimer);
-        mAutoplaySeqTimer = null;
-      }
-
-      function mStepAutoplay() {
-        if (!mAutoplayActive || !soundEnabled) { mStopAutoplay(); return; }
-        mAutoplayIdx++;
-        const line = mTextData[0];
-        while (mAutoplayIdx < line.length) {
-          const ch = line[mAutoplayIdx];
-          if (ch && !ch.deleting) {
-            ch.done = false;
-            ch.doneTime = null;
-            const g = font.stringToGlyphs(ch.char)[0];
-            const path = g ? g.getPath(0, 0, mFontSize) : { commands: [] };
-            const totalCmds = path.commands.length || 1;
-            mAnimations.set(ch.id, {
-              progress: 0,
-              startTime: performance.now(),
-              totalCmds: totalCmds,
-              direction: 1
-            });
-            pronounceChar(ch.char, false);
-            mSchedule();
-            const speed = mSpeeds[mSpeedLevel];
-            const animDuration = (totalCmds / (speed * 1.5)) * 1000;
-            const interval = Math.max(100, animDuration * 0.7);
-            mAutoplaySeqTimer = setTimeout(mStepAutoplay, interval);
-            return;
-          }
-          mAutoplayIdx++;
-        }
-        mAutoplaySeqTimer = setTimeout(mStartAutoplay, AUTOPLAY_DELAY);
-      }
 
       function flashCell(cell) {
         cell.classList.add('flash');
@@ -2712,7 +2692,15 @@
       }, { passive: true });
 
       mCanvas.addEventListener('click', () => {
-        grid.classList.toggle('visible');
+        const showing = grid.classList.toggle('visible');
+        if (showing && mMsgActive) {
+          mMsgStop();
+          mTextData[0].length = 0;
+          mCursorCol = 0;
+          mAnimations.clear();
+          mResetBlink();
+          mSchedule();
+        }
       });
 
       grid.addEventListener('click', (e) => {
@@ -2728,13 +2716,14 @@
       });
 
       document.getElementById('mClear').addEventListener('click', mClearAll);
+      document.getElementById('mSound').classList.add('blink');
       document.getElementById('mSound').addEventListener('click', () => {
         soundMode = (soundMode + 1) % SOUND_MODES.length;
         soundEnabled = soundMode > 0;
         const btn = document.getElementById('mSound');
         btn.textContent = 'SOUND: ' + SOUND_MODES[soundMode];
         btn.classList.toggle('active', soundEnabled);
-        mResetAutoplayTimer();
+        btn.classList.remove('blink');
       });
       document.getElementById('mFill').addEventListener('click', () => {
         mShowFill = !mShowFill;
@@ -2759,7 +2748,6 @@
         mSchedule();
       });
 
-      grid.addEventListener('click', () => { mResetAutoplayTimer(); }, true);
 
     }
   </script>
