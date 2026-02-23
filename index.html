@@ -449,6 +449,11 @@
       <span class="slider-val" id="speed-val">30</span>
     </div>
     <div class="slider-group">
+      <label>Kerning</label>
+      <input type="range" id="kerningSlider" min="-20" max="20" value="-5" aria-label="Kerning" />
+      <span class="slider-val" id="kerning-val">-5</span>
+    </div>
+    <div class="slider-group">
       <label>Wave</label>
       <input type="range" id="waveSlider" min="0" max="100" value="50" aria-label="Wave Intensity" />
       <span class="slider-val" id="wave-val">50</span>
@@ -1096,6 +1101,9 @@
       if (!hasActive && dMsgActive) {
         hasActive = true;
       }
+      if (!hasActive && autoplayActive) {
+        hasActive = true;
+      }
       if (hasActive) {
         animFrameId = requestAnimationFrame(renderFrame);
       }
@@ -1222,7 +1230,7 @@
     function getGlyphProgress(charObj) {
       if (charObj.done) return 1;
       const anim = animations.get(charObj.id);
-      if (!anim) return 1;
+      if (!anim) return autoplayActive ? 0 : 1;
       return anim.progress;
     }
 
@@ -1497,6 +1505,98 @@
 
     function triggerCharFlash(charObj) {
       if (charObj) charObj.flashTime = performance.now();
+    }
+
+    /* ===== Auto-play sequencer (user typing only) ===== */
+    const AUTOPLAY_DELAY = 2000;
+    let autoplayTimer = null;
+    let autoplaySeqTimer = null;
+    let autoplayIndex = -1;
+    let autoplayLine = 0;
+    let autoplayActive = false;
+
+    function collectAutoplayChars() {
+      const chars = [];
+      for (const line of textData) {
+        for (const c of line) {
+          if (!c.deleting) chars.push(c);
+        }
+      }
+      return chars;
+    }
+
+    function resetAutoplayTimer() {
+      stopAutoplay();
+      clearTimeout(autoplayTimer);
+      if (dMsgActive) return;
+      const allChars = collectAutoplayChars();
+      if (allChars.length > 0) {
+        autoplayTimer = setTimeout(startAutoplay, AUTOPLAY_DELAY);
+      }
+    }
+
+    function startAutoplay() {
+      if (dMsgActive) return;
+      const chars = collectAutoplayChars();
+      if (chars.length === 0) return;
+      autoplayActive = true;
+      autoplayLine = 0;
+      autoplayIndex = -1;
+      for (const c of chars) {
+        c.done = false;
+        c.doneTime = null;
+        animations.delete(c.id);
+      }
+      scheduleFrame();
+      stepAutoplay();
+    }
+
+    function stopAutoplay() {
+      if (autoplayActive) {
+        const chars = collectAutoplayChars();
+        for (const c of chars) {
+          if (!c.done) {
+            c.done = true;
+            c.doneTime = performance.now();
+          }
+        }
+      }
+      autoplayActive = false;
+      autoplayLine = 0;
+      autoplayIndex = -1;
+      clearTimeout(autoplaySeqTimer);
+      autoplaySeqTimer = null;
+    }
+
+    function stepAutoplay() {
+      if (!autoplayActive || dMsgActive) { stopAutoplay(); return; }
+      autoplayIndex++;
+      while (autoplayLine < textData.length) {
+        const line = textData[autoplayLine];
+        while (autoplayIndex < line.length) {
+          const ch = line[autoplayIndex];
+          if (ch && !ch.deleting) {
+            ch.done = false;
+            ch.doneTime = null;
+            startAnimation(ch);
+            pronounceChar(ch.char, false);
+            triggerCharFlash(ch);
+            scheduleFrame();
+            const speed = getSpeed();
+            const glyphs = font.stringToGlyphs(ch.char);
+            const g = glyphs[0];
+            const totalCmds = g ? g.getPath(0, 0, FONT_SIZE).commands.length : 20;
+            const animDuration = (totalCmds / (speed * 1.5)) * 1000;
+            const interval = Math.max(100, animDuration * 0.7);
+            autoplaySeqTimer = setTimeout(stepAutoplay, interval);
+            return;
+          }
+          autoplayIndex++;
+        }
+        autoplayLine++;
+        autoplayIndex = 0;
+      }
+      autoplaySeqTimer = setTimeout(startAutoplay, AUTOPLAY_DELAY);
     }
 
     let lastDisplayLines = [];
@@ -1803,6 +1903,7 @@
     canvas.addEventListener('keydown', (e) => {
       if (!font) return;
       if (dMsgActive) dMsgStop();
+      resetAutoplayTimer();
       const key = e.key;
 
       if (key === 'a' && (e.metaKey || e.ctrlKey)) {
@@ -1991,6 +2092,7 @@
 
     function insertChar(key) {
       if (dMsgActive) dMsgStop();
+      resetAutoplayTimer();
       if (selectAll) {
         deleteAll();
       }
@@ -2006,6 +2108,7 @@
 
     function doBackspace() {
       if (dMsgActive) { dMsgStop(); resetBlink(); scheduleFrame(); return; }
+      resetAutoplayTimer();
       if (selectAll) {
         deleteAll();
         resetBlink();
@@ -2241,6 +2344,7 @@
         }
         if (!active && (audioEnergy > 0.01 || audioEnergyTarget > 0.01)) active = true;
         if (!active && mMsgActive) active = true;
+        if (!active && mAutoplayActive) active = true;
         if (active) mAnimFrame = requestAnimationFrame(mRender);
       }
 
@@ -2366,6 +2470,7 @@
             if (charObj && !charObj.done) {
               const a = mAnimations.get(charObj.id);
               if (a) progress = a.progress;
+              else if (mAutoplayActive) progress = 0;
             }
             const isDeleting = charObj && charObj.deleting;
             let fadeT = 1;
@@ -2585,6 +2690,7 @@
       }
 
       function mInsert(key) {
+        mResetAutoplayTimer();
         if (mMsgActive) {
           mMsgStop();
           mTextData[0].length = 0;
@@ -2612,6 +2718,7 @@
       }
 
       function mBackspace() {
+        mResetAutoplayTimer();
         if (mMsgActive) {
           mMsgStop();
           mTextData[0].length = 0;
@@ -2641,6 +2748,7 @@
       }
 
       function mDelete() {
+        mResetAutoplayTimer();
         if (mCursorCol >= mTextData[0].length) return;
         const target = mTextData[0][mCursorCol];
         if (!target || target.deleting) return;
@@ -2660,10 +2768,87 @@
       }
 
       function mClearAll() {
+        mStopAutoplay();
         mTextData[0].length = 0;
         mCursorCol = 0;
         mAnimations.clear();
         mSchedule();
+      }
+
+      let mAutoplayActive = false;
+      let mAutoplayTimer = null;
+      let mAutoplaySeqTimer = null;
+      let mAutoplayIdx = -1;
+
+      function mResetAutoplayTimer() {
+        mStopAutoplay();
+        clearTimeout(mAutoplayTimer);
+        if (mMsgActive) return;
+        const chars = mTextData[0].filter(c => !c.deleting);
+        if (chars.length > 0) {
+          mAutoplayTimer = setTimeout(mStartAutoplay, AUTOPLAY_DELAY);
+        }
+      }
+
+      function mStartAutoplay() {
+        if (mMsgActive) return;
+        const chars = mTextData[0].filter(c => !c.deleting);
+        if (chars.length === 0) return;
+        mAutoplayActive = true;
+        mAutoplayIdx = -1;
+        for (const c of chars) {
+          c.done = false;
+          c.doneTime = null;
+          mAnimations.delete(c.id);
+        }
+        mSchedule();
+        mStepAutoplay();
+      }
+
+      function mStopAutoplay() {
+        if (mAutoplayActive) {
+          for (const c of mTextData[0]) {
+            if (!c.deleting && !c.done) {
+              c.done = true;
+              c.doneTime = performance.now();
+            }
+          }
+        }
+        mAutoplayActive = false;
+        mAutoplayIdx = -1;
+        clearTimeout(mAutoplaySeqTimer);
+        mAutoplaySeqTimer = null;
+      }
+
+      function mStepAutoplay() {
+        if (!mAutoplayActive || mMsgActive) { mStopAutoplay(); return; }
+        mAutoplayIdx++;
+        const line = mTextData[0];
+        while (mAutoplayIdx < line.length) {
+          const ch = line[mAutoplayIdx];
+          if (ch && !ch.deleting) {
+            ch.done = false;
+            ch.doneTime = null;
+            const g = font.stringToGlyphs(ch.char)[0];
+            const path = g ? g.getPath(0, 0, mFontSize) : { commands: [] };
+            const totalCmds = path.commands.length || 1;
+            mAnimations.set(ch.id, {
+              progress: 0,
+              startTime: performance.now(),
+              totalCmds: totalCmds,
+              direction: 1
+            });
+            pronounceChar(ch.char, false);
+            mSchedule();
+            const speed = mSpeeds[mSpeedLevel];
+            const animDuration = (totalCmds / (speed * 1.5)) * 1000;
+            const interval = Math.max(100, animDuration * 0.7);
+            mAutoplaySeqTimer = setTimeout(mStepAutoplay, interval);
+            return;
+          }
+          mAutoplayIdx++;
+        }
+        mAutoplaySeqTimer = setTimeout(mStartAutoplay, AUTOPLAY_DELAY);
       }
 
 
