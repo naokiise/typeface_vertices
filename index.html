@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Naoki Ise Web</title>
+  <title>Naoki Ise</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet">
@@ -272,64 +272,71 @@
     #mobileCanvas {
       display: block;
       width: 100%;
-      flex: 0 0 auto;
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: hidden;
     }
 
+    #mobileUI { background: var(--bg); }
     #letterGrid {
-      flex: 1;
-      display: flex;
+      flex: 0 0 auto;
+      max-height: 30vh;
+      display: none;
       flex-direction: column;
-      gap: 4px;
-      padding: 6px 4px;
-      background: rgba(255,255,255,0.02);
+      gap: 3px;
+      padding: 4px 4px;
+      background: var(--fg-08);
       -webkit-tap-highlight-color: transparent;
       user-select: none;
       -webkit-user-select: none;
       touch-action: manipulation;
     }
+    #letterGrid.visible {
+      display: flex;
+    }
     .kb-row {
       display: flex;
       flex: 1;
-      gap: 4px;
+      gap: 3px;
       justify-content: center;
     }
     .grid-cell {
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(255,255,255,0.06);
-      color: rgba(255,255,255,0.4);
+      background: var(--fg-08);
+      color: var(--fg-50);
       font-family: system-ui, sans-serif;
-      font-size: 15px;
+      font-size: 13px;
       font-weight: 500;
       letter-spacing: 0.02em;
-      border-radius: 6px;
+      border-radius: 5px;
       flex: 1;
-      max-width: 42px;
+      max-width: 36px;
       transition: background 0.08s, color 0.08s;
       position: relative;
       overflow: hidden;
       cursor: pointer;
     }
     .grid-cell:active, .grid-cell.flash {
-      background: rgba(255,255,255,0.95);
-      color: #000;
+      background: var(--fg-90);
+      color: var(--bg);
     }
     .grid-cell.wide {
       flex: 1.4;
-      max-width: 60px;
-      font-size: 12px;
+      max-width: 52px;
+      font-size: 11px;
     }
     .grid-cell.space {
       flex: 5;
       max-width: none;
-      font-size: 12px;
-      color: rgba(255,255,255,0.25);
+      font-size: 11px;
+      color: var(--fg-25);
       letter-spacing: 0.1em;
     }
     .grid-cell.fn {
-      font-size: 12px;
-      color: rgba(255,255,255,0.35);
+      font-size: 11px;
+      color: var(--fg-50);
       letter-spacing: 0;
     }
     .grid-cell.fn:active, .grid-cell.fn.flash {
@@ -339,7 +346,7 @@
     .grid-cell .ripple {
       position: absolute;
       border-radius: 50%;
-      background: rgba(255,255,255,0.3);
+      background: var(--fg-25);
       transform: scale(0);
       animation: rippleAnim 0.4s ease-out forwards;
       pointer-events: none;
@@ -350,18 +357,19 @@
 
     #mobileToolbar {
       display: flex;
-      height: 44px;
-      flex: 0 0 44px;
+      height: 36px;
+      flex: 0 0 36px;
       align-items: center;
       justify-content: space-between;
       padding: 0 12px;
-      background: rgba(255,255,255,0.03);
-      border-top: 1px solid rgba(255,255,255,0.06);
+      background: var(--fg-08);
+      border-top: 1px solid var(--fg-08);
     }
     #mobileToolbar button {
       border: none;
       padding: 4px 10px;
       font-size: 10px;
+      color: var(--fg-50);
     }
   </style>
 </head>
@@ -369,7 +377,7 @@
   <header id="site-header">
     <a class="site-name" href="/">Naoki Ise</a>
     <div class="header-right">
-      <a href="https://naokiise.com/selected-works" class="nav-link">Collaborations</a>
+      <a href="https://info.naokiise.com/selected-works" class="nav-link">Collaborations</a>
       <button id="themeBtn" class="header-icon" title="Toggle theme">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
       </button>
@@ -401,20 +409,13 @@
       <span class="slider-val" id="speed-val">30</span>
     </div>
     <div class="slider-group">
-      <label>Kerning</label>
-      <input type="range" id="kerningSlider" min="-50" max="200" value="0" aria-label="Kerning" />
-      <span class="slider-val" id="kerning-val">0</span>
-    </div>
-    <div class="slider-group">
       <label>Wave</label>
       <input type="range" id="waveSlider" min="0" max="100" value="50" aria-label="Wave Intensity" />
       <span class="slider-val" id="wave-val">50</span>
     </div>
     <button id="fillToggle">Fill: OFF</button>
-    <button id="kerningToggle" class="active">Kerning: ON</button>
-    <button id="sizeToggle" class="active">Size: ON</button>
     <button id="fadeToggle" class="active">Fade: ON</button>
-    <button id="soundToggle" class="active">Sound: DRUMS</button>
+    <button id="soundToggle">Sound: OFF</button>
   </div>
 
   <div id="mobileUI">
@@ -422,7 +423,7 @@
     <div id="letterGrid"></div>
     <div id="mobileToolbar">
       <button id="mClear">CLEAR</button>
-      <button id="mSound" class="active">SOUND: DRUMS</button>
+      <button id="mSound">SOUND: OFF</button>
       <button id="mFill">FILL: OFF</button>
       <button id="mSpeed">SPEED</button>
       <button id="mWave">WAVE: 50</button>
@@ -508,8 +509,8 @@
     let sizeEnabled = true;
     let fadeEnabled = true;
     const SOUND_MODES = ['OFF', 'VOICE', 'DRUMS'];
-    let soundMode = 2;
-    let soundEnabled = true;
+    let soundMode = 0;
+    let soundEnabled = false;
     const FADE_DURATION = 3000;
 
     fillToggle.addEventListener('click', () => {
@@ -520,7 +521,7 @@
       scheduleFrame();
     });
 
-    kerningToggle.addEventListener('click', () => {
+    if (kerningToggle) kerningToggle.addEventListener('click', () => {
       kerningEnabled = !kerningEnabled;
       kerningToggle.textContent = kerningEnabled ? 'Kerning: ON' : 'Kerning: OFF';
       kerningToggle.classList.toggle('active', kerningEnabled);
@@ -528,7 +529,7 @@
       scheduleFrame();
     });
 
-    sizeToggle.addEventListener('click', () => {
+    if (sizeToggle) sizeToggle.addEventListener('click', () => {
       sizeEnabled = !sizeEnabled;
       sizeToggle.textContent = sizeEnabled ? 'Size: ON' : 'Size: OFF';
       sizeToggle.classList.toggle('active', sizeEnabled);
@@ -582,10 +583,15 @@
       reversePhonetics[k] = v.split('').reverse().join('');
     }
 
+    function getSpeedFactor() {
+      return getSpeed() / 30;
+    }
+
     function pronounceChar(ch, reverse) {
       if (!soundEnabled) return;
+      const sf = getSpeedFactor();
       if (soundMode === 2) {
-        playDrum(ch.toLowerCase(), reverse);
+        playDrum(ch.toLowerCase(), reverse, sf);
         scheduleFrame();
         return;
       }
@@ -595,7 +601,8 @@
       const text = reverse
         ? (reversePhonetics[key] || key.split('').reverse().join(''))
         : (phonetics[key] || ch);
-      const rate = reverse ? 0.7 : 1.1;
+      const baseRate = reverse ? 0.7 : 1.1;
+      const rate = Math.max(0.1, Math.min(10, baseRate * sf));
       const pitch = reverse ? 0.5 : 1.0;
       const utt = new SpeechSynthesisUtterance(text);
       utt.lang = 'en-US';
@@ -737,21 +744,23 @@
       return buf;
     }
 
-    function playDrum(ch, reverse) {
+    function playDrum(ch, reverse, sf) {
+      sf = sf || 1;
       const ctx = getDrumCtx();
       if (ctx.state !== 'running') {
-        ctx.resume().then(() => playDrumNow(ctx, ch, reverse));
+        ctx.resume().then(() => playDrumNow(ctx, ch, reverse, sf));
         return;
       }
-      playDrumNow(ctx, ch, reverse);
+      playDrumNow(ctx, ch, reverse, sf);
     }
 
-    function playDrumNow(ctx, ch, reverse) {
+    function playDrumNow(ctx, ch, reverse, sf) {
+      sf = sf || 1;
       const t = ctx.currentTime;
       const type = drumMap[ch] || 'hihatClosed';
       const vol = reverse ? 0.5 : 1.0;
-      const pitchMul = reverse ? 0.6 : 1.0;
-      const decayMul = reverse ? 1.8 : 1.0;
+      const pitchMul = (reverse ? 0.6 : 1.0) * sf;
+      const decayMul = (reverse ? 1.8 : 1.0) / sf;
       const out = getDrumOutput();
       switch (type) {
         case 'kick': case 'kick2': case 'kickDeep': {
@@ -920,11 +929,11 @@
       }
     }
 
-    let globalKerning = 0;
+    let globalKerning = -5;
 
-    kerningSlider.addEventListener('input', () => {
+    if (kerningSlider) kerningSlider.addEventListener('input', () => {
       globalKerning = parseInt(kerningSlider.value);
-      kerningVal.textContent = globalKerning;
+      if (kerningVal) kerningVal.textContent = globalKerning;
       canvas.focus();
       scheduleFrame();
     });
@@ -939,15 +948,13 @@
 
     let font = null;
     let cursorLine = 0;
-    let cursorCol = isMobile ? 0 : 5;
+    let cursorCol = 0;
     let cursorVisible = true;
     let blinkTimer = null;
     let animFrameId = null;
 
     let charIdCounter = 0;
-    let textData = isMobile ? [[]] : [
-      'welcome'.split('').map(c => ({ char: c, id: charIdCounter++, done: true, kerning: 0, fontSize: FONT_SIZE }))
-    ];
+    let textData = [[]];
 
     const animations = new Map();
 
@@ -1026,6 +1033,9 @@
       if (!hasActive && autoplayActive) {
         hasActive = true;
       }
+      if (!hasActive && dMsgActive) {
+        hasActive = true;
+      }
       if (hasActive) {
         animFrameId = requestAnimationFrame(renderFrame);
       }
@@ -1047,14 +1057,86 @@
       resetBlink();
       if (isMobile) {
         if (typeof mobileRedraw === 'function') mobileRedraw();
+        if (typeof mScheduleRef === 'function') mScheduleRef();
+        if (typeof mMsgStart === 'function' && mMsgActive) mMsgStart();
       } else {
         draw();
         canvas.focus();
+        if (dMsgActive) dMsgTypeNext();
       }
       resetAutoplayTimer();
     }
 
     let mobileRedraw = null;
+    let mScheduleRef = null;
+    let mMsgStart = null;
+    let mMsgActive = false;
+
+    const dMsgs = ['welcome', 'type your message', 'sound on if you can'];
+    let dMsgActive = true;
+    let dMsgIndex = 0;
+    let dMsgCharIdx = 0;
+    let dMsgTimer = null;
+    const dMsgTypeInterval = 100;
+
+    function dMsgTypeNext() {
+      if (!dMsgActive || !font) return;
+      const msg = dMsgs[dMsgIndex];
+      if (dMsgCharIdx < msg.length) {
+        const ch = msg[dMsgCharIdx];
+        const newChar = { char: ch, id: charIdCounter++, done: false, kerning: 0, fontSize: FONT_SIZE };
+        textData[0].splice(cursorCol, 0, newChar);
+        cursorCol++;
+        startAnimation(newChar);
+        scheduleFrame();
+        dMsgCharIdx++;
+        dMsgTimer = setTimeout(dMsgTypeNext, dMsgTypeInterval);
+      } else {
+        dMsgTimer = setTimeout(dMsgStartDelete, 2500);
+      }
+    }
+
+    function dMsgStartDelete() {
+      if (!dMsgActive) return;
+      dMsgDeleteNext();
+    }
+
+    function dMsgDeleteNext() {
+      if (!dMsgActive) return;
+      const line = textData[0];
+      if (line && line.length > 0) {
+        const target = line[line.length - 1];
+        if (target && !target.deleting) {
+          cursorCol = Math.max(0, cursorCol - 1);
+          startDeleteAnimation(target);
+          scheduleFrame();
+          dMsgTimer = setTimeout(dMsgDeleteNext, 7);
+        } else {
+          dMsgTimer = setTimeout(dMsgDeleteNext, 3);
+        }
+      } else {
+        dMsgIndex++;
+        if (dMsgIndex >= dMsgs.length) dMsgIndex = 0;
+        dMsgCharIdx = 0;
+        cursorCol = 0;
+        scheduleFrame();
+        dMsgTimer = setTimeout(dMsgTypeNext, 400);
+      }
+    }
+
+    function dMsgStop() {
+      if (!dMsgActive) return;
+      dMsgActive = false;
+      clearTimeout(dMsgTimer);
+      dMsgTimer = null;
+      for (const line of textData) {
+        for (const c of line) animations.delete(c.id);
+      }
+      textData = [[]];
+      cursorLine = 0;
+      cursorCol = 0;
+      scheduleFrame();
+    }
 
     function getCursorX(lineIndex, col) {
       const lineChars = textData[lineIndex] || [];
@@ -1244,6 +1326,8 @@
       ctx.lineWidth = 1.2 + e * 3;
       ctx.stroke();
 
+      const vertexAlpha = fadeEnabled ? Math.max(0, 1 - fadeT) : 1;
+
       const points = [];
       let vertexIndex = 0;
       for (let i = 0; i < visibleCount; i++) {
@@ -1257,9 +1341,10 @@
           points.push({ x: cmd.x, y: cmd.y, onCurve: true, index: vertexIndex++ });
       }
 
+      if (vertexAlpha > 0.001) {
       let lastOnCurve = null;
       ctx.save();
-      ctx.strokeStyle = 'rgba(' + fg + ', ' + Math.min(1, 0.15 + e * 0.6) + ')';
+      ctx.strokeStyle = 'rgba(' + fg + ', ' + (Math.min(1, 0.15 + e * 0.6) * vertexAlpha).toFixed(3) + ')';
       ctx.lineWidth = 0.7 + e * 2;
       ctx.setLineDash([3, 3]);
       for (let i = 0; i < visibleCount; i++) {
@@ -1300,12 +1385,12 @@
           const r = ON_CURVE_RADIUS + ew * 6;
           ctx.beginPath();
           ctx.arc(w.x, w.y, r, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgb(' + fg + ')';
+          ctx.fillStyle = 'rgba(' + fg + ',' + vertexAlpha.toFixed(3) + ')';
           ctx.fill();
           if (ew > 0.05) {
             ctx.beginPath();
             ctx.arc(w.x, w.y, r + ew * 10, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(' + fg + ', ' + (ew * 0.4).toFixed(2) + ')';
+            ctx.strokeStyle = 'rgba(' + fg + ', ' + (ew * 0.4 * vertexAlpha).toFixed(3) + ')';
             ctx.lineWidth = 1;
             ctx.stroke();
           }
@@ -1313,18 +1398,22 @@
           const r = OFF_CURVE_RADIUS + ew * 4;
           ctx.beginPath();
           ctx.arc(w.x, w.y, r, 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(' + fg + ', ' + Math.min(1, 0.5 + ew * 0.5).toFixed(2) + ')';
+          ctx.strokeStyle = 'rgba(' + fg + ', ' + (Math.min(1, 0.5 + ew * 0.5) * vertexAlpha).toFixed(3) + ')';
           ctx.lineWidth = 1 + ew * 1.5;
           ctx.stroke();
         }
       }
+      }
 
+      if (vertexAlpha > 0.001) {
       ctx.font = '9px system-ui, sans-serif';
       ctx.textBaseline = 'middle';
       for (const pt of points) {
         const w = wave(pt.x, pt.y);
-        ctx.fillStyle = pt.onCurve ? 'rgba(' + fg + ', 0.6)' : 'rgba(' + fg + ', 0.35)';
+        const la = pt.onCurve ? 0.6 : 0.35;
+        ctx.fillStyle = 'rgba(' + fg + ', ' + (la * vertexAlpha).toFixed(3) + ')';
         ctx.fillText(String(pt.index), w.x + 6, w.y - 1);
+      }
       }
     }
 
@@ -1360,7 +1449,7 @@
       stopAutoplay();
       clearTimeout(autoplayTimer);
       const allChars = collectAutoplayChars();
-      if (allChars.length > 0 && soundEnabled) {
+      if (allChars.length > 0) {
         autoplayTimer = setTimeout(startAutoplay, AUTOPLAY_DELAY);
       }
     }
@@ -1398,7 +1487,7 @@
     }
 
     function stepAutoplay() {
-      if (!autoplayActive || !soundEnabled) { stopAutoplay(); return; }
+      if (!autoplayActive) { stopAutoplay(); return; }
       autoplayIndex++;
       while (autoplayLine < textData.length) {
         const line = textData[autoplayLine];
@@ -1704,6 +1793,7 @@
 
     canvas.addEventListener('keydown', (e) => {
       if (!font) return;
+      if (dMsgActive) dMsgStop();
       resetAutoplayTimer();
       const key = e.key;
 
@@ -1892,6 +1982,7 @@
     }, { passive: false });
 
     function insertChar(key) {
+      if (dMsgActive) dMsgStop();
       resetAutoplayTimer();
       if (selectAll) {
         deleteAll();
@@ -1907,6 +1998,7 @@
     }
 
     function doBackspace() {
+      if (dMsgActive) { dMsgStop(); resetBlink(); scheduleFrame(); return; }
       resetAutoplayTimer();
       if (selectAll) {
         deleteAll();
@@ -1986,7 +2078,7 @@
         ['1','2','3','4','5','6','7','8','9','0'],
         ['Q','W','E','R','T','Y','U','I','O','P'],
         ['A','S','D','F','G','H','J','K','L'],
-        ['⌫','Z','X','C','V','B','N','M','⌦'],
+        ['Z','X','C','V','B','N','M','⌫'],
         ['!','?',',','␣','.','-','⏎'],
       ];
 
@@ -1998,7 +2090,7 @@
           cell.className = 'grid-cell';
           cell.textContent = item;
           cell.dataset.key = item;
-          if (item === '⌫' || item === '⏎' || item === '⌦') {
+          if (item === '⌫' || item === '⏎') {
             cell.classList.add('fn');
             cell.classList.add('wide');
           }
@@ -2025,9 +2117,84 @@
       const mSpeeds = [30, 60, 100];
       const mSpeedLabels = ['SLOW', 'MED', 'FAST'];
 
+      const mMessages = ['welcome', 'type your message', 'sound on if you can'];
+      mMsgActive = true;
+      let mMsgIndex = 0;
+      let mMsgCharIdx = 0;
+      let mMsgTimer = null;
+      const mMsgTypeInterval = 120;
+
+      function mMsgTypeNext() {
+        if (!mMsgActive || !font) return;
+        const msg = mMessages[mMsgIndex];
+        if (mMsgCharIdx < msg.length) {
+          const ch = msg[mMsgCharIdx];
+          const newChar = { char: ch, id: mCharId++, done: false, kerning: 0, fontSize: mFontSize };
+          mTextData[0].splice(mCursorCol, 0, newChar);
+          mCursorCol++;
+          const g = font.stringToGlyphs(ch)[0];
+          const path = g ? g.getPath(0, 0, mFontSize) : { commands: [] };
+          mAnimations.set(newChar.id, {
+            progress: 0,
+            startTime: performance.now(),
+            totalCmds: path.commands.length || 1,
+            direction: 1
+          });
+          mSchedule();
+          mMsgCharIdx++;
+          mMsgTimer = setTimeout(mMsgTypeNext, mMsgTypeInterval);
+        } else {
+          mMsgTimer = setTimeout(mMsgStartDelete, 2500);
+        }
+      }
+
+      function mMsgStartDelete() {
+        if (!mMsgActive) return;
+        mMsgDeleteNext();
+      }
+
+      function mMsgDeleteNext() {
+        if (!mMsgActive) return;
+        const line = mTextData[0];
+        if (line && line.length > 0) {
+          const target = line[line.length - 1];
+          if (target && !target.deleting) {
+            target.done = false;
+            target.deleting = true;
+            const g = font.stringToGlyphs(target.char)[0];
+            const path = g ? g.getPath(0, 0, mFontSize) : { commands: [] };
+            mAnimations.set(target.id, {
+              progress: 1,
+              startTime: performance.now(),
+              totalCmds: path.commands.length || 1,
+              direction: -1
+            });
+            mCursorCol = Math.max(0, mCursorCol - 1);
+            mSchedule();
+            mMsgTimer = setTimeout(mMsgDeleteNext, 7);
+          } else {
+            mMsgTimer = setTimeout(mMsgDeleteNext, 3);
+          }
+        } else {
+          mMsgIndex++;
+          if (mMsgIndex >= mMessages.length) mMsgIndex = 0;
+          mMsgCharIdx = 0;
+          mSchedule();
+          mMsgTimer = setTimeout(mMsgTypeNext, 400);
+        }
+      }
+
+      function mMsgStop() {
+        mMsgActive = false;
+        clearTimeout(mMsgTimer);
+        mMsgTimer = null;
+      }
+
       function mSchedule() {
         if (!mAnimFrame) mAnimFrame = requestAnimationFrame(mRender);
       }
+      mScheduleRef = mSchedule;
+      mMsgStart = mMsgTypeNext;
 
       function mRender() {
         mAnimFrame = null;
@@ -2042,8 +2209,15 @@
             if (c.doneTime && (now - c.doneTime) < FADE_DURATION) { active = true; break; }
           }
         }
+        if (!active) {
+          const nowCheck = performance.now();
+          for (const c of mTextData[0]) {
+            if (c.flashTime && (nowCheck - c.flashTime) < FLASH_DURATION) { active = true; break; }
+          }
+        }
         if (!active && (audioEnergy > 0.01 || audioEnergyTarget > 0.01)) active = true;
         if (!active && mAutoplayActive) active = true;
+        if (!active && mMsgActive) active = true;
         if (active) mAnimFrame = requestAnimationFrame(mRender);
       }
 
@@ -2053,17 +2227,19 @@
         updateAudioEnergy();
 
         const vw = window.innerWidth;
-        const canvasH = mFontSize * 1.5 + mPadding * 2;
-        mCanvas.width = vw * mDPR;
-        mCanvas.height = canvasH * mDPR;
-        mCanvas.style.width = vw + 'px';
-        mCanvas.style.height = canvasH + 'px';
+        const canvasH = mCanvas.clientHeight || (mFontSize * 1.5 + mPadding * 2);
+        if (mCanvas.width !== Math.round(vw * mDPR)) mCanvas.width = Math.round(vw * mDPR);
+        if (mCanvas.height !== Math.round(canvasH * mDPR)) mCanvas.height = Math.round(canvasH * mDPR);
         mCtx.setTransform(mDPR, 0, 0, mDPR, 0, 0);
 
-        mCtx.fillStyle = '#000';
+        const mBg = isDark ? '#000' : '#fff';
+        const mFgVal = isDark ? 255 : 0;
+        const mFg = mFgVal + ',' + mFgVal + ',' + mFgVal;
+        mCtx.fillStyle = mBg;
         mCtx.fillRect(0, 0, vw, canvasH);
 
         const now = performance.now();
+
         const speed = mSpeeds[mSpeedLevel];
         const cmdPerSec = speed * 1.5;
 
@@ -2099,178 +2275,267 @@
         const text = lineChars.map(c => c.char).join('');
         const glyphs = font.stringToGlyphs(text);
 
-        let totalW = 0;
-        for (let i = 0; i < glyphs.length; i++) {
-          const cfs = lineChars[i] ? mFontSize : mFontSize;
-          totalW += glyphs[i].advanceWidth * (cfs / font.unitsPerEm);
+        let fs = mFontSize;
+        const maxW = vw - mPadding * 2;
+        const maxRows = Math.max(1, Math.floor((canvasH - mPadding * 2) / (mFontSize * 1.2)));
+
+        function calcRows(fontSize) {
+          const sc = fontSize / font.unitsPerEm;
+          const rows = [];
+          let rs = 0, rw = 0;
+          for (let i = 0; i < glyphs.length; i++) {
+            const gw = glyphs[i].advanceWidth * sc;
+            if (rw + gw > maxW && i > rs) {
+              rows.push({ start: rs, end: i, width: rw });
+              rs = i; rw = 0;
+            }
+            rw += gw;
+          }
+          rows.push({ start: rs, end: glyphs.length, width: rw });
+          return rows;
         }
 
-        const scale = mFontSize / font.unitsPerEm;
+        let displayRows = calcRows(fs);
+        while (displayRows.length > maxRows && fs > 20) {
+          fs *= 0.85;
+          displayRows = calcRows(fs);
+        }
+
+        const scale = fs / font.unitsPerEm;
         const asc = font.ascender * scale;
-        const baseline = mPadding + asc;
-        let x = Math.max(mPadding, (vw - totalW) / 2);
+        const desc = -font.descender * scale;
+        const lineH = asc + desc + 4;
 
-        for (let gi = 0; gi < glyphs.length; gi++) {
-          const glyph = glyphs[gi];
-          const charObj = lineChars[gi];
-          let progress = 1;
-          if (charObj && !charObj.done) {
-            const a = mAnimations.get(charObj.id);
-            if (a) progress = a.progress;
-            else if (mAutoplayActive) progress = 0;
-          }
-          const isDeleting = charObj && charObj.deleting;
-          let fadeT = 1;
-          if (fadeEnabled && charObj && charObj.doneTime && !isDeleting) {
-            fadeT = Math.min(1, (now - charObj.doneTime) / FADE_DURATION);
-          }
+        const totalH = displayRows.length * lineH;
+        const startY = Math.max(mPadding, (canvasH - totalH) / 2);
 
-          const fs = mFontSize;
-          const path = glyph.getPath(x, baseline, fs);
-          const cmds = path.commands;
-          const vis = Math.ceil(progress * cmds.length);
-          const e = audioEnergy;
-          const mwf = waveIntensity / 50;
-          const waveOn = e > 0.005 && waveIntensity > 0;
-          const SUB = waveOn ? Math.max(2, Math.round(mwf * 10)) : 0;
+        for (let ri = 0; ri < displayRows.length; ri++) {
+          const row = displayRows[ri];
+          const baseline = startY + ri * lineH + asc;
+          let x = Math.max(mPadding, (vw - row.width) / 2);
 
-          let xMn = Infinity, xMx = -Infinity;
-          if (waveOn) {
+          for (let gi = row.start; gi < row.end; gi++) {
+            const glyph = glyphs[gi];
+            const charObj = lineChars[gi];
+            let progress = 1;
+            if (charObj && !charObj.done) {
+              const a = mAnimations.get(charObj.id);
+              if (a) progress = a.progress;
+              else if (mAutoplayActive) progress = 0;
+            }
+            const isDeleting = charObj && charObj.deleting;
+            let fadeT = 1;
+            if (fadeEnabled && charObj && charObj.doneTime && !isDeleting) {
+              fadeT = Math.min(1, (now - charObj.doneTime) / FADE_DURATION);
+            }
+
+            const charW = glyph.advanceWidth * scale;
+            if (charObj && charObj.flashTime) {
+              const ft = 1 - Math.min(1, (now - charObj.flashTime) / FLASH_DURATION);
+              if (ft > 0) {
+                const pad = 4;
+                mCtx.fillStyle = 'rgba(255,0,0,' + (ft * 0.8).toFixed(3) + ')';
+                mCtx.fillRect(x - pad, baseline - asc - pad, charW + pad * 2, lineH + pad * 2);
+              }
+            }
+            const path = glyph.getPath(x, baseline, fs);
+            const cmds = path.commands;
+            const vis = Math.ceil(progress * cmds.length);
+            const e = audioEnergy;
+            const mwf = waveIntensity / 50;
+            const waveOn = e > 0.005 && waveIntensity > 0;
+            const SUB = waveOn ? Math.max(2, Math.round(mwf * 10)) : 0;
+
+            let xMn = Infinity, xMx = -Infinity;
+            if (waveOn) {
+              for (let i = 0; i < vis; i++) {
+                const c = cmds[i];
+                if (c.x !== undefined) { if (c.x < xMn) xMn = c.x; if (c.x > xMx) xMx = c.x; }
+                if (c.x1 !== undefined) { if (c.x1 < xMn) xMn = c.x1; if (c.x1 > xMx) xMx = c.x1; }
+                if (c.x2 !== undefined) { if (c.x2 < xMn) xMn = c.x2; if (c.x2 > xMx) xMx = c.x2; }
+              }
+            }
+            const xRng = Math.max(1, xMx - xMn);
+
+            function mw(px, py) {
+              if (!waveOn) return { x: px, y: py };
+              const t = Math.max(0, Math.min(1, (px - xMn) / xRng));
+              const binF = t * (WAVE_BINS - 1);
+              const lo = Math.floor(binF);
+              const hi = Math.min(lo + 1, WAVE_BINS - 1);
+              const frac = binF - lo;
+              const amp = waveData[lo] * (1 - frac) + waveData[hi] * frac;
+              const phase = t * Math.PI * 4 + now * 0.004;
+              return { x: px, y: py + Math.sin(phase) * amp * fs * 0.07 * mwf };
+            }
+
+            mCtx.beginPath();
+            let pcx = 0, pcy = 0;
             for (let i = 0; i < vis; i++) {
-              const c = cmds[i];
-              if (c.x !== undefined) { if (c.x < xMn) xMn = c.x; if (c.x > xMx) xMx = c.x; }
-              if (c.x1 !== undefined) { if (c.x1 < xMn) xMn = c.x1; if (c.x1 > xMx) xMx = c.x1; }
-              if (c.x2 !== undefined) { if (c.x2 < xMn) xMn = c.x2; if (c.x2 > xMx) xMx = c.x2; }
-            }
-          }
-          const xRng = Math.max(1, xMx - xMn);
-
-          function mw(px, py) {
-            if (!waveOn) return { x: px, y: py };
-            const t = Math.max(0, Math.min(1, (px - xMn) / xRng));
-            const binF = t * (WAVE_BINS - 1);
-            const lo = Math.floor(binF);
-            const hi = Math.min(lo + 1, WAVE_BINS - 1);
-            const frac = binF - lo;
-            const amp = waveData[lo] * (1 - frac) + waveData[hi] * frac;
-            const phase = t * Math.PI * 4 + now * 0.004;
-            return { x: px, y: py + Math.sin(phase) * amp * fs * 0.07 * mwf };
-          }
-
-          mCtx.beginPath();
-          let pcx = 0, pcy = 0;
-          for (let i = 0; i < vis; i++) {
-            const cmd = cmds[i];
-            if (SUB > 0) {
-              switch (cmd.type) {
-                case 'M': { const p = mw(cmd.x, cmd.y); mCtx.moveTo(p.x, p.y); pcx = cmd.x; pcy = cmd.y; break; }
-                case 'L': {
-                  for (let s = 1; s <= SUB; s++) {
-                    const t = s / SUB;
-                    const p = mw(pcx + (cmd.x - pcx) * t, pcy + (cmd.y - pcy) * t);
-                    mCtx.lineTo(p.x, p.y);
+              const cmd = cmds[i];
+              if (SUB > 0) {
+                switch (cmd.type) {
+                  case 'M': { const p = mw(cmd.x, cmd.y); mCtx.moveTo(p.x, p.y); pcx = cmd.x; pcy = cmd.y; break; }
+                  case 'L': {
+                    for (let s = 1; s <= SUB; s++) {
+                      const t = s / SUB;
+                      const p = mw(pcx + (cmd.x - pcx) * t, pcy + (cmd.y - pcy) * t);
+                      mCtx.lineTo(p.x, p.y);
+                    }
+                    pcx = cmd.x; pcy = cmd.y; break;
                   }
-                  pcx = cmd.x; pcy = cmd.y; break;
-                }
-                case 'Q': {
-                  for (let s = 1; s <= SUB; s++) {
-                    const t = s / SUB, mt = 1 - t;
-                    const p = mw(mt*mt*pcx + 2*mt*t*cmd.x1 + t*t*cmd.x, mt*mt*pcy + 2*mt*t*cmd.y1 + t*t*cmd.y);
-                    mCtx.lineTo(p.x, p.y);
+                  case 'Q': {
+                    for (let s = 1; s <= SUB; s++) {
+                      const t = s / SUB, mt = 1 - t;
+                      const p = mw(mt*mt*pcx + 2*mt*t*cmd.x1 + t*t*cmd.x, mt*mt*pcy + 2*mt*t*cmd.y1 + t*t*cmd.y);
+                      mCtx.lineTo(p.x, p.y);
+                    }
+                    pcx = cmd.x; pcy = cmd.y; break;
                   }
-                  pcx = cmd.x; pcy = cmd.y; break;
-                }
-                case 'C': {
-                  for (let s = 1; s <= SUB; s++) {
-                    const t = s / SUB, mt = 1 - t;
-                    const p = mw(
-                      mt*mt*mt*pcx + 3*mt*mt*t*cmd.x1 + 3*mt*t*t*cmd.x2 + t*t*t*cmd.x,
-                      mt*mt*mt*pcy + 3*mt*mt*t*cmd.y1 + 3*mt*t*t*cmd.y2 + t*t*t*cmd.y
-                    );
-                    mCtx.lineTo(p.x, p.y);
+                  case 'C': {
+                    for (let s = 1; s <= SUB; s++) {
+                      const t = s / SUB, mt = 1 - t;
+                      const p = mw(
+                        mt*mt*mt*pcx + 3*mt*mt*t*cmd.x1 + 3*mt*t*t*cmd.x2 + t*t*t*cmd.x,
+                        mt*mt*mt*pcy + 3*mt*mt*t*cmd.y1 + 3*mt*t*t*cmd.y2 + t*t*t*cmd.y
+                      );
+                      mCtx.lineTo(p.x, p.y);
+                    }
+                    pcx = cmd.x; pcy = cmd.y; break;
                   }
-                  pcx = cmd.x; pcy = cmd.y; break;
+                  case 'Z': mCtx.closePath(); break;
                 }
-                case 'Z': mCtx.closePath(); break;
-              }
-            } else {
-              switch (cmd.type) {
-                case 'M': mCtx.moveTo(cmd.x, cmd.y); pcx = cmd.x; pcy = cmd.y; break;
-                case 'L': mCtx.lineTo(cmd.x, cmd.y); pcx = cmd.x; pcy = cmd.y; break;
-                case 'Q': mCtx.quadraticCurveTo(cmd.x1, cmd.y1, cmd.x, cmd.y); pcx = cmd.x; pcy = cmd.y; break;
-                case 'C': mCtx.bezierCurveTo(cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.x, cmd.y); pcx = cmd.x; pcy = cmd.y; break;
-                case 'Z': mCtx.closePath(); break;
+              } else {
+                switch (cmd.type) {
+                  case 'M': mCtx.moveTo(cmd.x, cmd.y); pcx = cmd.x; pcy = cmd.y; break;
+                  case 'L': mCtx.lineTo(cmd.x, cmd.y); pcx = cmd.x; pcy = cmd.y; break;
+                  case 'Q': mCtx.quadraticCurveTo(cmd.x1, cmd.y1, cmd.x, cmd.y); pcx = cmd.x; pcy = cmd.y; break;
+                  case 'C': mCtx.bezierCurveTo(cmd.x1, cmd.y1, cmd.x2, cmd.y2, cmd.x, cmd.y); pcx = cmd.x; pcy = cmd.y; break;
+                  case 'Z': mCtx.closePath(); break;
+                }
               }
             }
-          }
 
-          if (isDeleting && progress < 1) {
-            mCtx.fillStyle = 'rgba(255, 255, 0, 1)';
-            mCtx.fill();
-          } else if (progress < 1) {
-            mCtx.fillStyle = 'rgba(255, 0, 0, 1)';
-            mCtx.fill();
-          } else if (fadeT < 1) {
-            if (fadeT < 0.5) {
-              const t = fadeT / 0.5;
-              mCtx.fillStyle = 'rgb(255,' + Math.round(t*255) + ',' + Math.round(t*255) + ')';
-            } else {
-              mCtx.fillStyle = 'rgba(255,255,255,' + (1 - (fadeT-0.5)/0.5) + ')';
-            }
-            mCtx.fill();
-          } else if (mShowFill) {
-            mCtx.fillStyle = 'rgba(255,255,255,0.85)';
-            mCtx.fill();
-          }
-          const mew = e * mwf;
-          mCtx.strokeStyle = 'rgba(255,255,255,' + Math.min(1, 0.85 + mew * 0.15) + ')';
-          mCtx.lineWidth = 1 + mew * 2.5;
-          mCtx.stroke();
-
-          const points = [];
-          for (let i = 0; i < vis; i++) {
-            const cmd = cmds[i];
-            if (cmd.type === 'Z') continue;
-            if (cmd.x1 !== undefined) points.push({ x: cmd.x1, y: cmd.y1, on: false });
-            if (cmd.x2 !== undefined) points.push({ x: cmd.x2, y: cmd.y2, on: false });
-            if (cmd.x !== undefined) points.push({ x: cmd.x, y: cmd.y, on: true });
-          }
-          for (const pt of points) {
-            const w = mw(pt.x, pt.y);
-            if (pt.on) {
-              const r = 2 + mew * 5;
-              mCtx.beginPath();
-              mCtx.arc(w.x, w.y, r, 0, Math.PI * 2);
-              mCtx.fillStyle = 'rgba(255,255,255,0.8)';
+            if (isDeleting && progress < 1) {
+              mCtx.fillStyle = 'rgba(255, 255, 0, 1)';
               mCtx.fill();
-              if (mew > 0.05) {
+            } else if (progress < 1) {
+              mCtx.fillStyle = 'rgba(255, 0, 0, 1)';
+              mCtx.fill();
+            } else if (fadeT < 1) {
+              if (fadeT < 0.5) {
+                const t = fadeT / 0.5;
+                mCtx.fillStyle = 'rgb(255,' + Math.round(t*255) + ',' + Math.round(t*255) + ')';
+              } else {
+                mCtx.fillStyle = 'rgba(' + mFg + ',' + (1 - (fadeT-0.5)/0.5) + ')';
+              }
+              mCtx.fill();
+            } else if (mShowFill) {
+              mCtx.fillStyle = 'rgba(' + mFg + ',0.85)';
+              mCtx.fill();
+            }
+            const mew = e * mwf;
+            mCtx.strokeStyle = 'rgba(' + mFg + ',' + Math.min(1, 0.85 + mew * 0.15) + ')';
+            mCtx.lineWidth = 1 + mew * 2.5;
+            mCtx.stroke();
+
+            const mVtxAlpha = fadeEnabled ? Math.max(0, 1 - fadeT) : 1;
+            if (mVtxAlpha > 0.001) {
+            const points = [];
+            for (let i = 0; i < vis; i++) {
+              const cmd = cmds[i];
+              if (cmd.type === 'Z') continue;
+              if (cmd.x1 !== undefined) points.push({ x: cmd.x1, y: cmd.y1, on: false });
+              if (cmd.x2 !== undefined) points.push({ x: cmd.x2, y: cmd.y2, on: false });
+              if (cmd.x !== undefined) points.push({ x: cmd.x, y: cmd.y, on: true });
+            }
+            for (const pt of points) {
+              const w = mw(pt.x, pt.y);
+              if (pt.on) {
+                const r = 2 + mew * 5;
                 mCtx.beginPath();
-                mCtx.arc(w.x, w.y, r + mew * 8, 0, Math.PI * 2);
-                mCtx.strokeStyle = 'rgba(255,255,255,' + (mew * 0.4).toFixed(2) + ')';
-                mCtx.lineWidth = 0.8;
+                mCtx.arc(w.x, w.y, r, 0, Math.PI * 2);
+                mCtx.fillStyle = 'rgba(' + mFg + ',' + (0.8 * mVtxAlpha).toFixed(3) + ')';
+                mCtx.fill();
+                if (mew > 0.05) {
+                  mCtx.beginPath();
+                  mCtx.arc(w.x, w.y, r + mew * 8, 0, Math.PI * 2);
+                  mCtx.strokeStyle = 'rgba(' + mFg + ',' + (mew * 0.4 * mVtxAlpha).toFixed(3) + ')';
+                  mCtx.lineWidth = 0.8;
+                  mCtx.stroke();
+                }
+              } else {
+                const r = 1.5 + mew * 3;
+                mCtx.beginPath();
+                mCtx.arc(w.x, w.y, r, 0, Math.PI * 2);
+                mCtx.strokeStyle = 'rgba(' + mFg + ',' + (Math.min(1, 0.4 + mew * 0.5) * mVtxAlpha).toFixed(3) + ')';
+                mCtx.lineWidth = 0.8 + mew * 1.2;
                 mCtx.stroke();
               }
-            } else {
-              const r = 1.5 + mew * 3;
-              mCtx.beginPath();
-              mCtx.arc(w.x, w.y, r, 0, Math.PI * 2);
-              mCtx.strokeStyle = 'rgba(255,255,255,' + Math.min(1, 0.4 + mew * 0.5).toFixed(2) + ')';
-              mCtx.lineWidth = 0.8 + mew * 1.2;
-              mCtx.stroke();
             }
-          }
+            }
 
-          x += glyph.advanceWidth * (fs / font.unitsPerEm);
+            x += charW;
+          }
+        }
+
+        if (!mMsgActive && mCursorVisible) {
+          let cursorGi = mCursorCol;
+          let curRow = 0;
+          for (let ri = 0; ri < displayRows.length; ri++) {
+            const row = displayRows[ri];
+            if (cursorGi <= row.end - row.start || ri === displayRows.length - 1) {
+              curRow = ri;
+              break;
+            }
+            cursorGi -= (row.end - row.start);
+          }
+          const row = displayRows[curRow];
+          const curBaseline = startY + curRow * lineH + asc;
+          let cx = Math.max(mPadding, (vw - row.width) / 2);
+          const end = Math.min(row.start + cursorGi, row.end);
+          for (let gi = row.start; gi < end; gi++) {
+            cx += glyphs[gi].advanceWidth * scale;
+          }
+          mCtx.strokeStyle = 'rgba(' + mFgVal + ',' + mFgVal + ',' + mFgVal + ',0.9)';
+          mCtx.lineWidth = 1.5;
+          mCtx.beginPath();
+          mCtx.moveTo(cx, curBaseline - asc);
+          mCtx.lineTo(cx, curBaseline + desc);
+          mCtx.stroke();
         }
       }
 
+      let mCursorVisible = true;
+      let mBlinkTimer = setInterval(() => {
+        mCursorVisible = !mCursorVisible;
+        mSchedule();
+      }, 530);
+
+      function mResetBlink() {
+        mCursorVisible = true;
+        clearInterval(mBlinkTimer);
+        mBlinkTimer = setInterval(() => {
+          mCursorVisible = !mCursorVisible;
+          mSchedule();
+        }, 530);
+      }
+
       function mInsert(key) {
+        if (mMsgActive) {
+          mMsgStop();
+          mTextData[0].length = 0;
+          mCursorCol = 0;
+          mAnimations.clear();
+        }
+        mResetBlink();
         mResetAutoplayTimer();
         if (!font) return;
         const ch = key.toLowerCase();
         const newChar = { char: ch, id: mCharId++, done: false, kerning: 0, fontSize: mFontSize };
         mTextData[0].splice(mCursorCol, 0, newChar);
         mCursorCol++;
+        triggerCharFlash(newChar);
         pronounceChar(ch);
 
         const g = font.stringToGlyphs(ch)[0];
@@ -2285,10 +2550,20 @@
       }
 
       function mBackspace() {
+        if (mMsgActive) {
+          mMsgStop();
+          mTextData[0].length = 0;
+          mCursorCol = 0;
+          mAnimations.clear();
+          mSchedule();
+          return;
+        }
+        mResetBlink();
         mResetAutoplayTimer();
         if (mCursorCol <= 0) return;
         const target = mTextData[0][mCursorCol - 1];
         if (!target || target.deleting) return;
+        triggerCharFlash(target);
         pronounceChar(target.char, true);
         target.done = false;
         target.deleting = true;
@@ -2309,6 +2584,7 @@
         if (mCursorCol >= mTextData[0].length) return;
         const target = mTextData[0][mCursorCol];
         if (!target || target.deleting) return;
+        triggerCharFlash(target);
         pronounceChar(target.char, true);
         target.done = false;
         target.deleting = true;
@@ -2325,7 +2601,7 @@
 
       function mClearAll() {
         mStopAutoplay();
-        mTextData = [[]];
+        mTextData[0].length = 0;
         mCursorCol = 0;
         mAnimations.clear();
         mSchedule();
@@ -2434,13 +2710,16 @@
         }
       }, { passive: true });
 
+      mCanvas.addEventListener('click', () => {
+        grid.classList.toggle('visible');
+      });
+
       grid.addEventListener('click', (e) => {
         unlockSpeech();
         const el = e.target.closest('.grid-cell');
         if (!el) return;
         const key = el.dataset.key;
         if (key === '⌫') { mBackspace(); }
-        else if (key === '⌦') { mDelete(); }
         else if (key === '␣') { mInsert(' '); }
         else if (key === '⏎') {}
         else if (key === ' ') {}
