@@ -1038,6 +1038,7 @@
     const OFF_CURVE_RADIUS = isMobile ? 1.8 : 2.5;
     const LABEL_MARGIN = isMobile ? 0 : 60;
     const LINE_GAP = isMobile ? 12 : 20;
+    const DESKTOP_LINE_HEIGHT_RATIO = 0.75;
 
     let font = null;
     let cursorLine = 0;
@@ -1186,6 +1187,27 @@
     let mScheduleRef = null;
     let mMsgStart = null;
     let mMsgActive = false;
+    let lastAutoScrollAt = 0;
+    let lastAutoScrollTop = -1;
+
+    function scrollCursorIntoView(cursorYOnCanvas) {
+      if (isMobile) return;
+      const rect = canvas.getBoundingClientRect();
+      const absY = rect.top + window.scrollY + cursorYOnCanvas;
+      const topPad = 96;
+      const bottomPad = 56;
+      const viewTop = window.scrollY + topPad;
+      const viewBottom = window.scrollY + window.innerHeight - bottomPad;
+      if (absY >= viewTop && absY <= viewBottom) return;
+
+      const targetTop = Math.max(0, absY - window.innerHeight * 0.45);
+      const now = performance.now();
+      if ((now - lastAutoScrollAt) < 80 && Math.abs(targetTop - lastAutoScrollTop) < 16) return;
+
+      window.scrollTo({ top: targetTop, behavior: 'auto' });
+      lastAutoScrollAt = now;
+      lastAutoScrollTop = targetTop;
+    }
 
     const dMsgs = ['welcome', 'hear the sound of typography', 'type to make your beat'];
     let dMsgActive = true;
@@ -1555,6 +1577,16 @@
       if (charObj) charObj.flashTime = performance.now();
     }
 
+    let lastDesktopTypeAt = 0;
+    function tagDesktopTyping(charObj) {
+      if (!charObj) return;
+      const now = performance.now();
+      if (lastDesktopTypeAt > 0) {
+        charObj.replayInterval = Math.max(40, Math.min(1200, now - lastDesktopTypeAt));
+      }
+      lastDesktopTypeAt = now;
+    }
+
     /* ===== Auto-play sequencer (user typing only) ===== */
     const AUTOPLAY_DELAY = 2000;
     let autoplayTimer = null;
@@ -1635,7 +1667,9 @@
             const g = glyphs[0];
             const totalCmds = g ? g.getPath(0, 0, FONT_SIZE).commands.length : 20;
             const animDuration = (totalCmds / (speed * 1.5)) * 1000;
-            const interval = Math.max(100, animDuration * 0.7);
+            const interval = ch.replayInterval
+              ? Math.max(40, ch.replayInterval)
+              : Math.max(100, animDuration * 0.7);
             autoplaySeqTimer = setTimeout(stepAutoplay, interval);
             return;
           }
@@ -1669,7 +1703,7 @@
         ? font.tables.os2.sxHeight * scale
         : ascender * 0.52;
 
-      const lineHeight = ascender - descender;
+      const lineHeight = (ascender - descender) * DESKTOP_LINE_HEIGHT_RATIO;
 
       let maxCharSize = FONT_SIZE;
       if (sizeEnabled) {
@@ -1682,7 +1716,7 @@
       const maxScale = maxCharSize / font.unitsPerEm;
       const maxAsc = font.ascender * maxScale;
       const maxDesc = font.descender * maxScale;
-      const maxLineH = maxAsc - maxDesc;
+      const maxLineH = (maxAsc - maxDesc) * DESKTOP_LINE_HEIGHT_RATIO;
 
       const maxCanvasW = Math.max(window.innerWidth * 0.95, 400);
       const wrapWidth = maxCanvasW - PADDING * 2 - LABEL_MARGIN;
@@ -1863,6 +1897,7 @@
         ctx.moveTo(curX, bl - ascender);
         ctx.lineTo(curX, bl - descender);
         ctx.stroke();
+        scrollCursorIntoView(bl);
       }
     }
 
@@ -1975,6 +2010,7 @@
         if (e.repeat) return;
         deleteAll();
         const newChar = { char: key, id: charIdCounter++, done: false, kerning: 0, fontSize: FONT_SIZE };
+        tagDesktopTyping(newChar);
         textData[0].push(newChar);
         cursorCol = 1;
         activeKeyChar = newChar;
@@ -2064,6 +2100,7 @@
         e.preventDefault();
         if (e.repeat) return;
         const newChar = { char: key, id: charIdCounter++, done: false, kerning: 0, fontSize: FONT_SIZE };
+        tagDesktopTyping(newChar);
         textData[cursorLine].splice(cursorCol, 0, newChar);
         cursorCol++;
         activeKeyChar = newChar;
@@ -2091,7 +2128,7 @@
       const scale = FONT_SIZE / font.unitsPerEm;
       const ascender = font.ascender * scale;
       const descender = font.descender * scale;
-      const lineHeight = ascender - descender;
+      const lineHeight = (ascender - descender) * DESKTOP_LINE_HEIGHT_RATIO;
 
       let bestDli = 0;
       let bestDist = Infinity;
@@ -2146,6 +2183,7 @@
       }
       clearSelection();
       const newChar = { char: key, id: charIdCounter++, done: false, kerning: 0, fontSize: FONT_SIZE };
+      tagDesktopTyping(newChar);
       textData[cursorLine].splice(cursorCol, 0, newChar);
       cursorCol++;
       triggerCharFlash(newChar);
@@ -2774,6 +2812,7 @@
         if (!font) return;
         const ch = key.toLowerCase();
         const newChar = { char: ch, id: mCharId++, done: false, kerning: 0, fontSize: mFontSize };
+        tagMobileTyping(newChar);
         mTextData[0].splice(mCursorCol, 0, newChar);
         mCursorCol++;
         triggerCharFlash(newChar);
@@ -2852,6 +2891,16 @@
       let mAutoplayTimer = null;
       let mAutoplaySeqTimer = null;
       let mAutoplayIdx = -1;
+      let lastMobileTypeAt = 0;
+
+      function tagMobileTyping(charObj) {
+        if (!charObj) return;
+        const now = performance.now();
+        if (lastMobileTypeAt > 0) {
+          charObj.replayInterval = Math.max(40, Math.min(1200, now - lastMobileTypeAt));
+        }
+        lastMobileTypeAt = now;
+      }
 
       function mResetAutoplayTimer() {
         mStopAutoplay();
@@ -2915,7 +2964,9 @@
             mSchedule();
             const speed = mSpeeds[mSpeedLevel];
             const animDuration = (totalCmds / (speed * 1.5)) * 1000;
-            const interval = Math.max(100, animDuration * 0.7);
+            const interval = ch.replayInterval
+              ? Math.max(40, ch.replayInterval)
+              : Math.max(100, animDuration * 0.7);
             mAutoplaySeqTimer = setTimeout(mStepAutoplay, interval);
             return;
           }
