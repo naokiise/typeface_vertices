@@ -203,6 +203,21 @@
       background: var(--fg);
       cursor: pointer;
     }
+    .slider-group select {
+      background: transparent;
+      border: 1px solid var(--fg-25);
+      color: var(--fg-70);
+      padding: 5px 10px;
+      font-size: 11px;
+      border-radius: 4px;
+      letter-spacing: 0.04em;
+      min-width: 150px;
+      outline: none;
+    }
+    .slider-group select:focus {
+      border-color: var(--fg-50);
+      color: var(--fg);
+    }
     .slider-val {
       font-size: 11px;
       opacity: 0.4;
@@ -444,14 +459,23 @@
   <canvas id="canvas" tabindex="0"></canvas>
   <div id="controls">
     <div class="slider-group">
+      <label>Font</label>
+      <select id="fontSelect" aria-label="Font">
+        <option value="inter" selected>Inter</option>
+        <option value="roboto">Roboto</option>
+        <option value="space-grotesk">Space Grotesk</option>
+        <option value="roboto-slab">Roboto Slab</option>
+      </select>
+    </div>
+    <div class="slider-group">
       <label>Speed</label>
       <input type="range" id="speedSlider" min="1" max="100" value="30" aria-label="Speed" />
       <span class="slider-val" id="speed-val">30</span>
     </div>
     <div class="slider-group">
       <label>Kerning</label>
-      <input type="range" id="kerningSlider" min="-20" max="20" value="-5" aria-label="Kerning" />
-      <span class="slider-val" id="kerning-val">-5</span>
+      <input type="range" id="kerningSlider" min="-20" max="20" value="-4" aria-label="Kerning" />
+      <span class="slider-val" id="kerning-val">-4</span>
     </div>
     <div class="slider-group">
       <label>Wave</label>
@@ -494,6 +518,7 @@
     const sizeToggle = document.getElementById('sizeToggle');
     const kerningSlider = document.getElementById('kerningSlider');
     const kerningVal = document.getElementById('kerning-val');
+    const fontSelect = document.getElementById('fontSelect');
     const waveSlider = document.getElementById('waveSlider');
     const waveValEl = document.getElementById('wave-val');
     let waveIntensity = 50;
@@ -997,7 +1022,7 @@
       }
     }
 
-    let globalKerning = -5;
+    let globalKerning = -4;
 
     if (kerningSlider) kerningSlider.addEventListener('input', () => {
       globalKerning = parseInt(kerningSlider.value);
@@ -1109,29 +1134,52 @@
       }
     }
 
-    async function loadFont() {
-      const url = 'https://cdn.jsdelivr.net/gh/rsms/inter@v4.0/docs/font-files/InterVariable.woff2';
-      try {
-        font = await opentype.load(url);
-      } catch (e) {
-        const fallbackUrl = 'https://cdn.jsdelivr.net/gh/rsms/inter@v3.19/docs/font-files/Inter-Regular.woff2';
+    const FONT_SOURCES = {
+      inter: [
+        'https://cdn.jsdelivr.net/gh/rsms/inter@v4.0/docs/font-files/InterVariable.woff2',
+        'https://cdn.jsdelivr.net/gh/rsms/inter@v3.19/docs/font-files/Inter-Regular.woff2',
+        'https://cdn.jsdelivr.net/gh/rsms/inter@v3.19/docs/font-files/Inter-Regular.otf',
+      ],
+      roboto: [
+        'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/roboto/Roboto%5Bwdth,wght%5D.ttf',
+      ],
+      'space-grotesk': [
+        'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/spacegrotesk/SpaceGrotesk[wght].ttf',
+      ],
+      'roboto-slab': [
+        'https://cdn.jsdelivr.net/gh/google/fonts@main/apache/robotoslab/RobotoSlab%5Bwght%5D.ttf',
+      ],
+    };
+
+    async function loadFont(restartMessages = true) {
+      const key = (fontSelect && fontSelect.value) || 'inter';
+      const candidates = FONT_SOURCES[key] || FONT_SOURCES.inter;
+      let loaded = null;
+      for (const url of candidates) {
         try {
-          font = await opentype.load(fallbackUrl);
-        } catch (e2) {
-          const otfUrl = 'https://cdn.jsdelivr.net/gh/rsms/inter@v3.19/docs/font-files/Inter-Regular.otf';
-          font = await opentype.load(otfUrl);
-        }
+          loaded = await opentype.load(url);
+          break;
+        } catch (e) {}
       }
+      if (!loaded) loaded = await opentype.load(FONT_SOURCES.inter[0]);
+      font = loaded;
+
       resetBlink();
       if (isMobile) {
         if (typeof mobileRedraw === 'function') mobileRedraw();
         if (typeof mScheduleRef === 'function') mScheduleRef();
-        if (typeof mMsgStart === 'function' && mMsgActive) mMsgStart();
+        if (restartMessages && typeof mMsgStart === 'function' && mMsgActive) mMsgStart();
       } else {
         draw();
         canvas.focus();
-        if (dMsgActive) dMsgTypeNext();
+        if (restartMessages && dMsgActive) dMsgTypeNext();
       }
+    }
+
+    if (fontSelect) {
+      fontSelect.addEventListener('change', async () => {
+        await loadFont(false);
+      });
     }
 
     let mobileRedraw = null;
@@ -2453,7 +2501,10 @@
         const scale = fs / font.unitsPerEm;
         const asc = font.ascender * scale;
         const desc = -font.descender * scale;
-        const lineH = asc + desc + 4;
+        const xHeight = (font.tables.os2 && font.tables.os2.sxHeight)
+          ? font.tables.os2.sxHeight * scale
+          : asc * 0.52;
+        const lineH = (asc + desc + 4) * 0.8;
 
         const totalH = displayRows.length * lineH;
         const startY = Math.max(mPadding, (canvasH - totalH) / 2);
@@ -2461,7 +2512,29 @@
         for (let ri = 0; ri < displayRows.length; ri++) {
           const row = displayRows[ri];
           const baseline = startY + ri * lineH + asc;
-          let x = Math.max(mPadding, (vw - row.width) / 2);
+          const ascenderY = baseline - asc;
+          const xHeightY = baseline - xHeight;
+          const descenderY = baseline + desc;
+
+          // Mobile also shows type metrics like desktop.
+          mCtx.save();
+          mCtx.setLineDash([4, 4]);
+          mCtx.lineWidth = 0.6;
+          mCtx.strokeStyle = 'rgba(' + mFg + ',0.28)';
+          mCtx.beginPath();
+          mCtx.moveTo(mPadding - 6, ascenderY);
+          mCtx.lineTo(vw - mPadding + 6, ascenderY);
+          mCtx.moveTo(mPadding - 6, xHeightY);
+          mCtx.lineTo(vw - mPadding + 6, xHeightY);
+          mCtx.moveTo(mPadding - 6, baseline);
+          mCtx.lineTo(vw - mPadding + 6, baseline);
+          mCtx.moveTo(mPadding - 6, descenderY);
+          mCtx.lineTo(vw - mPadding + 6, descenderY);
+          mCtx.stroke();
+          mCtx.setLineDash([]);
+          mCtx.restore();
+
+          let x = mPadding;
 
           for (let gi = row.start; gi < row.end; gi++) {
             const glyph = glyphs[gi];
@@ -2641,11 +2714,11 @@
           const curScale = curFs / font.unitsPerEm;
           const curAsc = font.ascender * curScale;
           const curDesc = -font.descender * curScale;
-          const curLineH = curAsc + curDesc + 4;
+          const curLineH = (curAsc + curDesc + 4) * 0.8;
 
           if (displayRows.length === 0 || (displayRows.length === 1 && displayRows[0].end === 0)) {
             const cy = canvasH / 2;
-            const cx = vw / 2;
+            const cx = mPadding;
             mCtx.strokeStyle = 'rgba(' + mFgVal + ',' + mFgVal + ',' + mFgVal + ',0.9)';
             mCtx.lineWidth = 1.5;
             mCtx.beginPath();
@@ -2665,7 +2738,7 @@
             }
             const row = displayRows[curRow];
             const curBaseline = startY + curRow * curLineH + curAsc;
-            let cx = Math.max(mPadding, (vw - row.width) / 2);
+            let cx = mPadding;
             const end = Math.min(row.start + cursorGi, row.end);
             for (let gi = row.start; gi < end; gi++) {
               cx += glyphs[gi].advanceWidth * curScale;
