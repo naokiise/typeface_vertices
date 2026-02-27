@@ -99,32 +99,6 @@
       width: 20px;
       height: 20px;
     }
-    #menuBtn { display: none; }
-    #mobile-menu {
-      display: none;
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: var(--bg);
-      z-index: 200;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 32px;
-    }
-    #mobile-menu.visible { display: flex; }
-    #mobile-menu a {
-      color: var(--fg-90);
-      text-decoration: none;
-      font-family: 'Inter', system-ui, sans-serif;
-      font-size: 20px;
-      font-weight: 400;
-    }
-    #mobile-menu a:hover { opacity: 0.6; }
-    #mobile-menu .menu-close {
-      position: absolute;
-      top: 10px;
-      right: 16px;
-    }
     #search-overlay {
       display: none;
       position: fixed;
@@ -262,8 +236,6 @@
     @media (max-width: 600px) {
       #site-header { padding: 10px 16px; }
       #site-header .site-name { font-size: 16px; }
-      #site-header .header-right a.nav-link { display: none; }
-      #menuBtn { display: flex; }
       #site-header .header-icon { width: 32px; height: 32px; }
       canvas { margin-top: 16px; }
       #controls { gap: 10px; margin-top: 16px; margin-bottom: 16px; }
@@ -430,26 +402,17 @@
 </head>
 <body>
   <header id="site-header">
-    <a class="site-name" href="/">Naoki Ise</a>
+    <a class="site-name" href="https://info.naokiise.com/">Naoki Ise</a>
     <div class="header-right">
-      <a href="https://info.naokiise.com/selected-works" class="nav-link">Collaborations</a>
+      <a href="https://info.naokiise.com/">About</a>
       <button id="themeBtn" class="header-icon" title="Toggle theme">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
       </button>
       <button id="searchBtn" class="header-icon" title="Search">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
       </button>
-      <button id="menuBtn" class="header-icon" title="Menu">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
-      </button>
     </div>
   </header>
-  <div id="mobile-menu">
-    <button id="menuClose" class="header-icon menu-close" title="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-    </button>
-    <a href="https://naokiise.com/selected-works">Collaborations</a>
-  </div>
   <div id="search-overlay">
     <div id="search-box">
       <input id="search-input" type="text" placeholder="Type to search characters…" autocomplete="off" />
@@ -524,12 +487,6 @@
     let waveIntensity = 50;
     const fadeToggle = document.getElementById('fadeToggle');
     const soundToggle = document.getElementById('soundToggle');
-    const menuBtn = document.getElementById('menuBtn');
-    const mobileMenu = document.getElementById('mobile-menu');
-    const menuClose = document.getElementById('menuClose');
-    menuBtn.addEventListener('click', () => mobileMenu.classList.add('visible'));
-    menuClose.addEventListener('click', () => mobileMenu.classList.remove('visible'));
-    mobileMenu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => mobileMenu.classList.remove('visible')));
     const themeBtn = document.getElementById('themeBtn');
     const searchBtn = document.getElementById('searchBtn');
     const searchOverlay = document.getElementById('search-overlay');
